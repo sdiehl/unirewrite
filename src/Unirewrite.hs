@@ -45,27 +45,27 @@ decIter = modify $ \s -> s { iter = (iter s) - 1 }
 -- Eval Loop
 -------------------------------------------------------------------------------
 
-type Trans t a = a -> Reader t (Maybe a)
+type Trans t a = a -> Reader t (String, Maybe a)
 
-type Eval c a r = RWS c     -- ^Evaluation context (properties, definitions)
-                  [a]       -- ^Steps
-                  EvalState -- ^Evaluation state
-                  r         -- ^Result
+type Eval c a r = RWS c         -- ^Evaluation context (properties, definitions)
+                  [(String, a)] -- ^Steps
+                  EvalState     -- ^Evaluation state
+                  r             -- ^Result
 
 limitReached :: Eval c a Bool
 limitReached = do
   i <- gets depth
   j <- gets iter
-  return $ i > 1000 || j > 1000
+  return $ i > 50 || j > 50
 
-runTrans :: c -> (a -> R.Reader c (Maybe a)) -> a -> Maybe a
+runTrans :: c -> (a -> R.Reader c (String, (Maybe a))) -> a -> (String, Maybe a)
 runTrans ctx f x = R.runReader (f x) ctx
 
-addStep :: a -> Eval c a ()
-addStep r = do
+addStep :: String -> a -> Eval c a ()
+addStep rl s = do
   i <- gets depth
   if i == 0 then do
-    tell [r]
+    tell [(rl, s)]
   else do
     return ()
 
@@ -82,15 +82,15 @@ eval f x = do
     y <- descendM (eval f) x
     decDepth
     -- apply to the root
-    let z = runTrans ctx f y
+    let (rl, z) = runTrans ctx f y
     case z of
       Just r -> do
-        addStep x
+        addStep rl x
         incIter
         eval f r
       -- If in normal form then halt
       Nothing -> do
         return y
 
-evaluatorLoop :: (Eq a, Data a, Show a) => c -> Trans c a -> a -> (a, EvalState, [a])
+evaluatorLoop :: (Eq a, Data a, Show a) => c -> Trans c a -> a -> (a, EvalState, [(String, a)])
 evaluatorLoop ctx f x = runRWS (eval f x) ctx defaultEvalState
