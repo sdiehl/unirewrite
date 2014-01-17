@@ -24,10 +24,12 @@ data EvalState = EvalState
     { depth :: Integer
     , iter  :: Integer
     , status :: Status
+    , maxRecursion :: Integer
+    , maxIteration :: Integer
     } deriving (Show)
 
 defaultEvalState :: EvalState
-defaultEvalState = EvalState 0 0 Success
+defaultEvalState = EvalState 0 0 Success 50 50
 
 incDepth :: Eval c a ()
 incDepth = modify $ \s -> s { depth = (depth s) + 1 }
@@ -45,21 +47,24 @@ decIter = modify $ \s -> s { iter = (iter s) - 1 }
 -- Eval Loop
 -------------------------------------------------------------------------------
 
-type Trans t a = a -> Reader t (String, Maybe a)
+type Trans t a = a -> ReaderT t IO (String, Maybe a)
 
-type Eval c a r = RWS c         -- ^Evaluation context (properties, definitions)
+type Eval c a r = RWST c        -- ^Evaluation context (properties, definitions)
                   [(String, a)] -- ^Steps
                   EvalState     -- ^Evaluation state
+                  IO
                   r             -- ^Result
 
 limitReached :: Eval c a Bool
 limitReached = do
   i <- gets depth
   j <- gets iter
-  return $ i > 50 || j > 50
+  maxi <- gets maxRecursion
+  maxj <- gets maxIteration
+  return $ i > maxi || j > maxj
 
-runTrans :: c -> (a -> R.Reader c (String, (Maybe a))) -> a -> (String, Maybe a)
-runTrans ctx f x = R.runReader (f x) ctx
+runTrans :: c -> (a -> ReaderT c IO (String, (Maybe a))) -> a -> IO (String, Maybe a)
+runTrans ctx f x = runReaderT (f x) ctx
 
 addStep :: String -> a -> Eval c a ()
 addStep rl s = do
@@ -80,9 +85,10 @@ eval f x = do
     -- transform children in bottom-up applicative order
     incDepth
     y <- descendM (eval f) x
+    tell [("",y)]
     decDepth
+    (rl, z) <- lift $ runTrans ctx f y
     -- apply to the root
-    let (rl, z) = runTrans ctx f y
     case z of
       Just r -> do
         addStep rl x
@@ -92,5 +98,5 @@ eval f x = do
       Nothing -> do
         return y
 
-evaluatorLoop :: (Eq a, Data a, Show a) => c -> Trans c a -> a -> (a, EvalState, [(String, a)])
-evaluatorLoop ctx f x = runRWS (eval f x) ctx defaultEvalState
+evaluatorLoop :: (Eq a, Data a, Show a) => c -> Trans c a -> a -> IO (a, EvalState, [(String, a)])
+evaluatorLoop ctx f x = runRWST (eval f x) ctx defaultEvalState
