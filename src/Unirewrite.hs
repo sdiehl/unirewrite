@@ -1,11 +1,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Unirewrite (
   evaluatorLoop,
+  Step,
   EvalState,
-  Trans
+  Trans,
+
+  Quotable(..),
+  Identifiable(..),
+  Evalutable
 ) where
 
 import Control.Monad.RWS
@@ -13,6 +19,19 @@ import Control.Monad.Reader as R
 
 import Data.Data
 import Data.Generics.Uniplate.Data
+
+-------------------------------------------------------------------------------
+-- Evaluation Classes
+-------------------------------------------------------------------------------
+
+
+class Quotable a where
+  quoted :: a -> Bool
+
+class Identifiable a where
+  identify :: a -> String
+
+class (Eq a, Data a, Show a, Quotable a, Identifiable a) => Evalutable a
 
 -------------------------------------------------------------------------------
 -- Evaluation State
@@ -47,35 +66,18 @@ decIter = modify $ \s -> s { iter = (iter s) - 1 }
 -- Eval Loop
 -------------------------------------------------------------------------------
 
-type Trans t a = a -> ReaderT t IO (String, Maybe a)
+type Step a = (String, Maybe a)
+type Trans t a = a -> ReaderT t IO (Step a)
 
 type Eval c a r = RWST c        -- ^Evaluation context (properties, definitions)
-                  [(String, a)] -- ^Steps
+                  [Step a]      -- ^Steps
                   EvalState     -- ^Evaluation state
-                  IO
+                  IO            -- ^Underlying IO
                   r             -- ^Result
 
-limitReached :: Eval c a Bool
-limitReached = do
-  i <- gets depth
-  j <- gets iter
-  maxi <- gets maxRecursion
-  maxj <- gets maxIteration
-  return $ i > maxi || j > maxj
-
-runTrans :: c -> (a -> ReaderT c IO (String, (Maybe a))) -> a -> IO (String, Maybe a)
-runTrans ctx f x = runReaderT (f x) ctx
-
-addStep :: String -> a -> Eval c a ()
-addStep rl s = do
-  i <- gets depth
-  if i == 0 then do
-    tell [(rl, s)]
-  else do
-    return ()
-
-eval :: (Eq a, Data a, Show a) => (Trans c a) -> a -> Eval c a a
-eval f x = do
+eval :: (Evalutable a) => (Trans c a) -> a -> Eval c a a
+eval f x | quoted x = return x
+eval f x  = do
   ctx <- ask
   abort <- limitReached
   if abort then do
@@ -85,18 +87,37 @@ eval f x = do
     -- transform children in bottom-up applicative order
     incDepth
     y <- descendM (eval f) x
-    tell [("",y)]
+    tell [("", Just y)]
     decDepth
-    (rl, z) <- lift $ runTrans ctx f y
+    step@(_, z) <- lift $ runTrans ctx f y
     -- apply to the root
     case z of
       Just r -> do
-        addStep rl x
+        addStep step
         incIter
         eval f r
       -- If in normal form then halt
       Nothing -> do
         return y
 
-evaluatorLoop :: (Eq a, Data a, Show a) => c -> Trans c a -> a -> IO (a, EvalState, [(String, a)])
+limitReached :: Eval c a Bool
+limitReached = do
+  i <- gets depth
+  j <- gets iter
+  maxi <- gets maxRecursion
+  maxj <- gets maxIteration
+  return $ i > maxi || j > maxj
+
+runTrans :: c -> (Trans c a) -> a -> IO (String, Maybe a)
+runTrans ctx f x = runReaderT (f x) ctx
+
+addStep :: Step a -> Eval c a ()
+addStep step = do
+  i <- gets depth
+  if i == 0 then do
+    tell [step]
+  else do
+    return ()
+
+evaluatorLoop :: (Evalutable a) => c -> Trans c a -> a -> IO (a, EvalState, [Step a])
 evaluatorLoop ctx f x = runRWST (eval f x) ctx defaultEvalState
