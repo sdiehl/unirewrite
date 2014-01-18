@@ -8,7 +8,9 @@ module Unirewrite (
   Step,
   EvalState,
   Trans,
+  Dir,
 
+  Direction(..),
   Quotable(..),
   Identifiable(..),
   Evalutable
@@ -43,12 +45,20 @@ data EvalState = EvalState
     { depth :: Integer
     , iter  :: Integer
     , status :: Status
+    , aborted :: Bool
     , maxRecursion :: Integer
     , maxIteration :: Integer
     } deriving (Show)
 
 defaultEvalState :: EvalState
-defaultEvalState = EvalState 0 0 Success 50 50
+defaultEvalState = EvalState
+                  { depth = 0
+                  , iter = 0
+                  , status = Success
+                  , aborted = False
+                  , maxRecursion = 4096
+                  , maxIteration = 4096
+                  }
 
 incDepth :: Eval c a ()
 incDepth = modify $ \s -> s { depth = (depth s) + 1 }
@@ -62,12 +72,24 @@ incIter = modify $ \s -> s { iter = (iter s) + 1 }
 decIter :: Eval c a ()
 decIter = modify $ \s -> s { iter = (iter s) - 1 }
 
+abort :: Eval c a ()
+abort = modify $ \s -> s { aborted = True }
+
+directEvaluation :: Direction -> Eval c a ()
+directEvaluation dir = undefined
+
 -------------------------------------------------------------------------------
 -- Eval Loop
 -------------------------------------------------------------------------------
 
-type Step a = (String, Maybe a)
+-- Term transformations
 type Trans t a = a -> ReaderT t IO (Step a)
+
+-- Evaluation directives
+type Dir t a = a -> ReaderT t IO Direction
+data Direction = Pass | Some [Bool] | BottomUp | TopDown | Abort
+
+type Step a = (String, Maybe a)
 
 type Eval c a r = RWST c        -- ^Evaluation context (properties, definitions)
                   [Step a]      -- ^Steps
@@ -75,41 +97,81 @@ type Eval c a r = RWST c        -- ^Evaluation context (properties, definitions)
                   IO            -- ^Underlying IO
                   r             -- ^Result
 
-eval :: (Evalutable a) => (Trans c a) -> a -> Eval c a a
-eval f x | quoted x = return x
-eval f x  = do
+eval :: (Evalutable a) => Dir c a -> Trans c a -> a -> Eval c a a
+eval d f x  = do
   ctx <- ask
-  abort <- limitReached
-  if abort then do
+  stop <- limitReached
+  if stop then do
     modify $ \s -> s { status = Failed }
     return x
+
   else do
-    -- transform children in bottom-up applicative order
-    incDepth
-    y <- descendM (eval f) x
-    tell [("", Just y)]
-    decDepth
-    step@(_, z) <- lift $ runTrans ctx f y
-    -- apply to the root
-    case z of
-      Just r -> do
-        addStep step
-        incIter
-        eval f r
-      -- If in normal form then halt
-      Nothing -> do
-        return y
+    director <- lift $ runDir ctx d x
+    case director of
+
+      -- transform children in bottom-up applicative order
+      BottomUp -> do
+        incDepth
+        y <- descendM (eval d f) x
+        decDepth
+        step@(_, z) <- lift $ runTrans ctx f y
+        -- apply to the root
+        case z of
+          Just r -> do
+            addStep step
+            incIter
+            eval d f r
+          -- If in normal form then halt
+          Nothing -> do
+            return y
+
+      TopDown -> do
+        step@(_, y) <- lift $ runTrans ctx f x
+        -- apply to the root
+        z <- case y of
+          Just r -> do
+            addStep step
+            incIter
+            eval d f r
+          -- If in normal form then halt
+          Nothing -> do
+            return x
+        incDepth
+        res <- descendM (eval d f) z
+        decDepth
+        return res
+
+      -- do not proceed to children
+      Pass -> do
+        step@(_, z) <- lift $ runTrans ctx f x
+        case z of
+          Just r -> do
+            addStep step
+            incIter
+            eval d f r
+          -- If in normal form then halt
+          Nothing -> do
+            return x
+
+      Abort -> do
+        abort
+        return x
+
 
 limitReached :: Eval c a Bool
 limitReached = do
   i <- gets depth
   j <- gets iter
+  abort <- gets aborted
   maxi <- gets maxRecursion
   maxj <- gets maxIteration
-  return $ i > maxi || j > maxj
+  return $ abort || i > maxi || j > maxj
 
-runTrans :: c -> (Trans c a) -> a -> IO (String, Maybe a)
+runTrans :: c -> Trans c a -> a -> IO (String, Maybe a)
 runTrans ctx f x = runReaderT (f x) ctx
+
+runDir :: c -> Dir c a -> a -> IO Direction
+runDir ctx d x = runReaderT (d x) ctx
 
 addStep :: Step a -> Eval c a ()
 addStep step = do
@@ -119,5 +181,5 @@ addStep step = do
   else do
     return ()
 
-evaluatorLoop :: (Evalutable a) => c -> Trans c a -> a -> IO (a, EvalState, [Step a])
-evaluatorLoop ctx f x = runRWST (eval f x) ctx defaultEvalState
+evaluatorLoop :: (Evalutable a) => c -> Dir c a -> Trans c a -> a -> IO (a, EvalState, [Step a])
+evaluatorLoop ctx d f x = runRWST (eval d f x) ctx defaultEvalState
