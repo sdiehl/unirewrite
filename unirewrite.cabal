@@ -14,8 +14,9 @@ library
   -- Ghc-options:        -Wall
   build-depends:       
       base >=4.6 && <4.7
-    , uniplate >= 1.6.12
     , transformers
     , mtl
+    , uniplate >= 1.6.12
+    , hashtables >= 1.1.2
   default-language:    Haskell2010
   Hs-source-dirs:      src

@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 module Unirewrite (
   evaluatorLoop,
@@ -11,8 +10,6 @@ module Unirewrite (
   Dir,
 
   Direction(..),
-  Quotable(..),
-  Identifiable(..),
   Evalutable
 ) where
 
@@ -26,14 +23,7 @@ import Data.Generics.Uniplate.Data
 -- Evaluation Classes
 -------------------------------------------------------------------------------
 
-
-class Quotable a where
-  quoted :: a -> Bool
-
-class Identifiable a where
-  identify :: a -> String
-
-class (Eq a, Data a, Show a, Quotable a, Identifiable a) => Evalutable a
+class (Eq a, Data a, Show a) => Evalutable a
 
 -------------------------------------------------------------------------------
 -- Evaluation State
@@ -69,14 +59,8 @@ decDepth = modify $ \s -> s { depth = (depth s) - 1 }
 incIter :: Eval c a ()
 incIter = modify $ \s -> s { iter = (iter s) + 1 }
 
-decIter :: Eval c a ()
-decIter = modify $ \s -> s { iter = (iter s) - 1 }
-
 abort :: Eval c a ()
 abort = modify $ \s -> s { aborted = True }
-
-directEvaluation :: Direction -> Eval c a ()
-directEvaluation dir = undefined
 
 -------------------------------------------------------------------------------
 -- Eval Loop
@@ -87,7 +71,7 @@ type Trans t a = a -> ReaderT t IO (Step a)
 
 -- Evaluation directives
 type Dir t a = a -> ReaderT t IO Direction
-data Direction = Pass | Some [Bool] | BottomUp | TopDown | Abort
+data Direction = Pass | BottomUp | TopDown | Abort | Some [Bool]
 
 type Step a = (String, Maybe a)
 
