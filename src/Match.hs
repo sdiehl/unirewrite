@@ -130,14 +130,14 @@ bind p e = do
       put $ fromMap $ Map.insert p e s
       return True
 
--- | Match a pattern returning the list of substitutions
-matchList :: Matchable a => a -> a -> [(a, a)]
-matchList pat expr = (Map.toList . toMap) $ matchSubst pat expr
+-- | Matching a pattern returning if the pattern matches
+matches :: Matchable a => a -> a -> Bool
+matches pat expr = fst (runMatcher pat expr)
 
 -- | Match a pattern returning a substitution
 matchSubst :: Matchable a => a -> a -> Subst a a
 matchSubst pat expr = snd (runMatcher pat expr)
 
--- | Matching a pattern returning if the pattern matches
-matches :: Matchable a => a -> a -> Bool
-matches pat expr = fst (runMatcher pat expr)
+-- | Match a pattern returning the list of substitutions
+matchList :: Matchable a => a -> a -> [(a, a)]
+matchList pat expr = (Map.toList . toMap) $ matchSubst pat expr

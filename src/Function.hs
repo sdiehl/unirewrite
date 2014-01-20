@@ -1,7 +1,13 @@
-module Function where
+module Function (
+  replaceWith,
+  replaceWithMap,
+  function,
+  matchCase
+) where
 
 import Match
 import Data.Data
+import qualified Data.Map as Map
 
 import Data.Generics.Uniplate.Data
 
@@ -11,21 +17,23 @@ replaceWith x y = transform fn
     fn x0 | x0 == x = y
     fn x0 = x0
 
--- If `expr` matches the `lhs` then rebind the `rhs` scope.
-function :: Data a => b -> a -> b -> Maybe a
-function lhs rhs expr =
-  if matchq then
-      Just $ apply subst rhs
-  else
-      Nothing
-  where
-    (matchq, subst) = matches lhs expr
+replaceWithMap :: (Data a, Ord a) => Map.Map (Maybe a) a -> Maybe a -> Maybe a
+replaceWithMap subst = transform fn
+  where fn x = Map.lookup x subst
 
-matchCase :: Data a => b -> [(b, a)] -> Maybe a
-matchCase _ [] = Nothing
-matchCase var ((lhs, rhs):xs) =
-  if matchq
-  then Just $ apply subst rhs
-  else matchCase var xs
+-- Apply /expr/ to the /lhs/ of a "function" and rebind the /rhs/ scope if it matches the /lhs/
+function :: Matchable a => (a, a) -> a -> Maybe a
+function (lhs, rhs) expr
+    | matchq    = Just $ apply subst rhs
+    | otherwise = Nothing
   where
-    (matchq, subst) = matches lhs var
+    (matchq, subst) = runMatcher lhs expr
+
+-- Match a list of patterns binding the rhs if the pattern is matched.
+matchCase :: Matchable a => a -> [(a, a)] -> Maybe a
+matchCase _ [] = Nothing
+matchCase var ((lhs, rhs):xs)
+    | matchq    = Just $ apply subst rhs
+    | otherwise = matchCase var xs
+  where
+    (matchq, subst) = runMatcher lhs var
