@@ -35,7 +35,6 @@ import Data.Generics.Uniplate.Data
 -- | Pattern match monad
 type MatchM a b = State (Subst a b) Bool
 
-
 class (Ord a, Data a) => Matchable a where
   isPattern :: a -> Bool
   bindPattern :: a -> a
@@ -52,18 +51,13 @@ class Testable a where
 
 
 runMatcher :: Matchable a => a -> a -> (Bool, Subst a a)
-runMatcher a b = (ms, sub)
-  where
-    (ms, sub) = runState m emptySubst
-    m = do
-      let ua = universe a
-      let ub = universe b
-      zipMatch' ua ub
+runMatcher a b = runState m emptySubst
+  where m = zipMatch' (universe a) (universe b)
 
 zipMatch' :: Matchable a => [a] -> [a] -> MatchM a a
 zipMatch' [] [] = donematch
-zipMatch' _ [] = nomatch
 zipMatch' [] _ = nomatch
+zipMatch' _ [] = nomatch
 zipMatch' (x:xs) (y:ys) = match x y >> zipMatch' xs ys
 
 -------------------------------------------------------------------------------

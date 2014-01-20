@@ -2,15 +2,16 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Unirewrite (
+module Eval (
   evaluatorLoop,
-  Step,
-  EvalState,
-  Trans,
-  Dir,
 
-  Direction(..),
-  Evalutable
+  Dir,
+  Step,
+  Trans,
+  EvalState,
+
+  Evalutable,
+  Direction(..)
 ) where
 
 import Control.Monad.RWS
