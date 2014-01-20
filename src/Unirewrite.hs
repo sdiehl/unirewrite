@@ -146,10 +146,10 @@ limitReached :: Eval c a Bool
 limitReached = do
   i <- gets depth
   j <- gets iter
-  abort <- gets aborted
+  stop <- gets aborted
   maxi <- gets maxRecursion
   maxj <- gets maxIteration
-  return $ abort || i > maxi || j > maxj
+  return $ stop || i > maxi || j > maxj
 
 runTrans :: c -> Trans c a -> a -> IO (String, Maybe a)
 runTrans ctx f x = runReaderT (f x) ctx

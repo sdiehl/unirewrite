@@ -3,8 +3,6 @@
 
 module Match (
   apply,
-  matches,
-  matchesList,
   bind,
 
   runMatcher,
@@ -12,6 +10,10 @@ module Match (
   emptymatch,
   nomatch,
   donematch,
+
+  matches,
+  matchList,
+  matchSubst,
 
   Matchable(..),
   Testable(..)
@@ -92,9 +94,10 @@ unionSubst :: Matchable a => Subst a b -> Subst a b -> Subst a b
 unionSubst s1 s2 = Subst (toMap s1 `Map.union` toMap s2)
 
 instance Matchable a => Monoid (Subst a a) where
-    mempty  = emptySubst
-    mappend = compose
+  mempty  = emptySubst
+  mappend = compose
 
+-- | Apply matching substition to expression
 apply :: Matchable a => Subst a a -> a -> a
 apply b = transform go
   where
@@ -127,8 +130,14 @@ bind p e = do
       put $ fromMap $ Map.insert p e s
       return True
 
-matchesList :: Matchable a => a -> a -> (Bool, [(a, a)])
-matchesList e p = fmap (Map.toList . toMap) $ matches e p
+-- | Match a pattern returning the list of substitutions
+matchList :: Matchable a => a -> a -> [(a, a)]
+matchList pat expr = (Map.toList . toMap) $ matchSubst pat expr
 
-matches :: Matchable a => a -> a -> (Bool, Subst a a)
-matches pat expr = runState (match pat expr) emptySubst
+-- | Match a pattern returning a substitution
+matchSubst :: Matchable a => a -> a -> Subst a a
+matchSubst pat expr = snd (runMatcher pat expr)
+
+-- | Matching a pattern returning if the pattern matches
+matches :: Matchable a => a -> a -> Bool
+matches pat expr = fst (runMatcher pat expr)
