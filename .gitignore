@@ -1,6 +1,7 @@
 *.sw[po]
 *.o
 *.so
+*.hi
 cabal.sandbox.config
 .cabal-sandbox
 dist/
