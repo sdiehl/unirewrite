@@ -50,6 +50,7 @@ class Testable a where
     _           -> False
 
 
+-- | Run pattern matcher
 runMatcher :: Matchable a => a -> a -> (Bool, Subst a a)
 runMatcher a b = runState m emptySubst
   where m = zipMatch' (universe a) (universe b)

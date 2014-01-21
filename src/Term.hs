@@ -1,9 +1,7 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
-
 
 module Term where
 
@@ -45,7 +43,7 @@ functions x = [a | a <- universe x, isfun a]
 -- |A pattern is linear if it contains each variable at most once.
 isLinear :: IsTerm a var => a -> Bool
 isLinear x = (List.nub args) == args
-  where args = (variables x)
+  where args = variables x
 
 -- |A pattern is nonlinear if it contains a variable more than once.
 isNonLinear :: IsTerm a var => a -> Bool

@@ -43,13 +43,13 @@ data EvalState = EvalState
 
 defaultEvalState :: EvalState
 defaultEvalState = EvalState
-                  { depth = 0
-                  , iter = 0
-                  , status = Success
-                  , aborted = False
-                  , maxRecursion = 4096
-                  , maxIteration = 4096
-                  }
+  { depth        = 0
+  , iter         = 0
+  , status       = Success
+  , aborted      = False
+  , maxRecursion = 4096
+  , maxIteration = 4096
+  }
 
 incDepth :: Eval c a ()
 incDepth = modify $ \s -> s { depth = (depth s) + 1 }
@@ -71,16 +71,12 @@ abort = modify $ \s -> s { aborted = True }
 type Trans t a = a -> ReaderT t IO (Step a)
 
 -- Evaluation directives
-type Dir t a = a -> ReaderT t IO Direction
 data Direction = Pass | BottomUp | TopDown | Abort | Some [Bool]
+type Dir t a = a -> ReaderT t IO Direction
 
 type Step a = (String, Maybe a)
 
-type Eval c a r = RWST c        -- ^Evaluation context (properties, definitions)
-                  [Step a]      -- ^Steps
-                  EvalState     -- ^Evaluation state
-                  IO            -- ^Underlying IO
-                  r             -- ^Result
+type Eval c a r = RWST c [Step a] EvalState IO r
 
 eval :: (Evalutable a) => Dir c a -> Trans c a -> a -> Eval c a a
 eval d f x  = do
@@ -91,8 +87,8 @@ eval d f x  = do
     return x
 
   else do
-    director <- lift $ runDir ctx d x
-    case director of
+    dir <- lift $ runDir ctx d x
+    case dir of
 
       -- transform children in bottom-up applicative order
       BottomUp -> do
@@ -138,9 +134,14 @@ eval d f x  = do
           Nothing -> do
             return x
 
+      Some xs -> do
+        undefined
+
       Abort -> do
         abort
         return x
+
+
 
 
 limitReached :: Eval c a Bool
