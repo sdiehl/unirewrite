@@ -26,6 +26,7 @@ import Data.Maybe
 import Control.Monad
 import Control.Applicative
 
+import Data.Generics.Str
 import Data.Generics.Uniplate.Data
 
 -- | /Identity/
@@ -104,32 +105,60 @@ apply :: Data on => (on -> Maybe on) -> on -> on
 apply f = transform g
   where g x = maybe x id (f x)
 
+-------------------------------------------------------------------------------
+-- Conditionals
+-------------------------------------------------------------------------------
+
 try ::  (a -> Maybe a) -> a -> Maybe a
 try f = f `left` succeed
 
 -- | Repeat while a predicate holds.
-
 while :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
 while p f x = if p x
   then while p f (apply f x)
   else Just x
 
 -- | Repeat until a predicate holds.
-
 until :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
 until p f x = if not (p x)
   then while p f (apply f x)
   else Just x
 
+-------------------------------------------------------------------------------
+-- Rule Composition
+-------------------------------------------------------------------------------
+
 compose :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
 compose f g a = f a `mplus` g a
 
-composes :: MonadPlus m => [t -> m a] -> t -> m a
+composes :: [t -> Maybe a] -> t -> Maybe a
 composes fs x = msum [f x | f <- fs]
 
--- unbounded fixpoint
-fixp :: (a -> Maybe a) -> a -> a
-fixp f = last . fixpl f
+-------------------------------------------------------------------------------
+-- Traversal application
+-------------------------------------------------------------------------------
 
-fixpl :: (a -> Maybe a) -> a -> [a]
-fixpl f a = a : maybe [] (fixpl f) (f a)
+topdown :: Data on => (on -> on) -> on -> on
+topdown g a =
+   let (current, generate) = uniplate (g a)
+   in generate (strMap (topdown g) current)
+
+bottomup :: Data on => (on -> on) -> on -> on
+bottomup = transform
+
+-------------------------------------------------------------------------------
+-- Fixpoint
+-------------------------------------------------------------------------------
+
+fixpoint :: Eq a => (a -> a) -> a -> a
+fixpoint f = go . iterate f
+ where
+   go [] = error "empty list"
+   go (x:xs)
+      | x == head xs = x
+      | otherwise    = go xs
+
+fixpointM :: (Monad m, Eq a) => (a -> m a) -> a -> m a
+fixpointM f a = do
+   b <- f a
+   if a==b then return a else fixpointM f b

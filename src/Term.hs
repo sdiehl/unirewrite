@@ -46,10 +46,6 @@ terminal = null . children
 depth :: IsTerm a var => a -> Integer
 depth = para $ \_ cs -> 1 + maximum (0:cs)
 
--- |Extract the nth subexpression
-child :: IsTerm a var => Int -> a -> a
-child n = head . drop n . children
-
 -- |Extract subexpressions based on a predicate, applying a function.
 extractWith :: IsTerm a var => (a -> Bool) -> (a -> b) -> a -> [b]
 extractWith p f x = [f y | y <- universe x, p y]
