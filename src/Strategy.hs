@@ -35,7 +35,7 @@ import Data.Generics.Uniplate.Data
 -- @
 --
 -- do nothing succesfully
-succeed :: a -> Maybe a
+succeed :: on -> Maybe on
 succeed = Just
 
 -- | /Failure/
@@ -45,7 +45,7 @@ succeed = Just
 -- @
 --
 -- Do nothing unsuccesfully
-failure :: a -> Maybe a
+failure :: on -> Maybe on
 failure = const Nothing
 
 -- | /Sequence/
@@ -109,14 +109,14 @@ try f = f `left` succeed
 
 -- | Repeat while a predicate holds.
 
-while :: Data a => (a -> Bool) -> (a -> Maybe a) -> a -> Maybe a
+while :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
 while p f x = if p x
   then while p f (apply f x)
   else Just x
 
 -- | Repeat until a predicate holds.
 
-until :: Data a => (a -> Bool) -> (a -> Maybe a) -> a -> Maybe a
+until :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
 until p f x = if not (p x)
   then while p f (apply f x)
   else Just x

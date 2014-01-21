@@ -2,19 +2,25 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Match (
+
+  -- * Substitutions
   apply,
   bind,
 
-  runMatcher,
-
+  -- * Matching
+  Subst,
+  MatchM,
   emptymatch,
   nomatch,
   donematch,
+  runMatcher,
 
+  -- * Match results
   matches,
   matchList,
   matchSubst,
 
+  -- * Classes
   Matchable(..),
   Testable(..)
 ) where

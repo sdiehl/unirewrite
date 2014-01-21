@@ -5,9 +5,7 @@
 
 module Term where
 
-import Data.Set (Set)
 import Data.Data
-import qualified Data.Set as Set
 import qualified Data.List as List
 
 import Data.Generics.Uniplate.Data
@@ -34,9 +32,15 @@ instance (Enum a, IsVar a) => IsVar [a] where
 extract :: IsTerm a var => (a -> Bool) -> a -> [a]
 extract p x = [y | y <- universe x, p y]
 
+-- |Extract subexpressions based on a predicate, applying a function.
+extractWith :: IsTerm a var => (a -> Bool) -> (a -> b) -> a -> [b]
+extractWith p f x = [f y | y <- universe x, p y]
+
+-- |Extract variable terms
 variables :: IsTerm a var => a -> [var]
 variables x = [varEx a | a <- universe x, isvar a]
 
+-- |Extract function terms
 functions :: IsTerm a var => a -> [a]
 functions x = [a | a <- universe x, isfun a]
 
