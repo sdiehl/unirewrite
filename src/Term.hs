@@ -28,14 +28,6 @@ instance IsVar Int where
 instance IsVar Integer where
 instance (Enum a, IsVar a) => IsVar [a] where
 
--- |Extract subexpressions based on a predicate.
-extract :: IsTerm a var => (a -> Bool) -> a -> [a]
-extract p x = [y | y <- universe x, p y]
-
--- |Extract subexpressions based on a predicate, applying a function.
-extractWith :: IsTerm a var => (a -> Bool) -> (a -> b) -> a -> [b]
-extractWith p f x = [f y | y <- universe x, p y]
-
 -- |Extract variable terms
 variables :: IsTerm a var => a -> [var]
 variables x = [varEx a | a <- universe x, isvar a]
@@ -43,6 +35,24 @@ variables x = [varEx a | a <- universe x, isvar a]
 -- |Extract function terms
 functions :: IsTerm a var => a -> [a]
 functions x = [a | a <- universe x, isfun a]
+
+-- |Extract subexpressions based on a predicate.
+extract :: IsTerm a var => (a -> Bool) -> a -> [a]
+extract p x = [y | y <- universe x, p y]
+
+terminal :: IsTerm a var => a -> Bool
+terminal = null . children
+
+depth :: IsTerm a var => a -> Integer
+depth = para $ \_ cs -> 1 + maximum (0:cs)
+
+-- |Extract the nth subexpression
+child :: IsTerm a var => Int -> a -> a
+child n = head . drop n . children
+
+-- |Extract subexpressions based on a predicate, applying a function.
+extractWith :: IsTerm a var => (a -> Bool) -> (a -> b) -> a -> [b]
+extractWith p f x = [f y | y <- universe x, p y]
 
 -- |A pattern is linear if it contains each variable at most once.
 isLinear :: IsTerm a var => a -> Bool

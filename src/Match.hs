@@ -42,14 +42,13 @@ import Data.Generics.Uniplate.Data
 type MatchM a b = State (Subst a b) Bool
 
 class (Ord a, Data a) => Matchable a where
-  isPattern :: a -> Bool
+  isPattern   :: a -> Bool
   bindPattern :: a -> a
-  match :: a -> a -> MatchM a a
+  match       :: a -> a -> MatchM a a
 
 -- Guard conditions
 class Testable a where
-  test :: a -> Maybe Bool
-
+  test  :: a -> Maybe Bool
   testq :: a -> Bool
   testq x = case test x of
     (Just True) -> True
@@ -85,7 +84,7 @@ emptySubst :: Subst a b
 emptySubst = fromMap Map.empty
 
 nullSubst :: Subst a b -> Bool
-nullSubst x = Map.null (toMap x)
+nullSubst = Map.null . toMap
 
 -- (s1 `compose` s2) `apply` t = s1 `apply` (s2 `apply` t).
 compose :: (Data a, Ord a, Matchable a) => Subst a a -> Subst a a -> Subst a a
@@ -93,10 +92,6 @@ compose s1 s2 = fromMap (Map.unionWith const (apply s1 <$> toMap s2) (toMap s1))
 
 unionSubst :: Matchable a => Subst a b -> Subst a b -> Subst a b
 unionSubst s1 s2 = Subst (toMap s1 `Map.union` toMap s2)
-
-instance Matchable a => Monoid (Subst a a) where
-  mempty  = emptySubst
-  mappend = compose
 
 -- | Apply matching substition to expression
 apply :: Matchable a => Subst a a -> a -> a
@@ -142,3 +137,8 @@ matchSubst pat expr = snd (runMatcher pat expr)
 -- | Match a pattern returning the list of substitutions
 matchList :: Matchable a => a -> a -> [(a, a)]
 matchList pat expr = (Map.toList . toMap) $ matchSubst pat expr
+
+
+instance Matchable a => Monoid (Subst a a) where
+  mempty  = emptySubst
+  mappend = compose
