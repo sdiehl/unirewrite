@@ -11,11 +11,11 @@ cabal-version:       >=1.10
 library
   exposed-modules:     
     Eval,
-    Function
     Index,
     Match,
     Pretty,
     Strategy,
+    Pattern,
     Term
   Cc-options:          
   -- Ghc-options:        -Wall

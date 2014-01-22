@@ -5,15 +5,13 @@ module Strategy (
   failure,
   seqn,
 
+  left,
+  right,
+
   try,
   until,
   while,
 
-  left,
-  right,
-
-  apply,
-  reduce,
   compose,
   composes,
 
@@ -24,6 +22,8 @@ module Strategy (
   topdownM,
   bottomup,
   bottomupM,
+  apply,
+  reduce,
 
   fixpoint,
   fixpointM
@@ -65,8 +65,8 @@ failure = const Nothing
 -- a ; b
 -- @
 --
--- First do a, then do that b (requiring both to succeed).
-seqn :: MonadPlus m => (t -> m a) -> (t -> m a) -> t -> m a
+-- First do a, then do b (requiring both to succeed).
+seqn :: (t -> Maybe a) -> (t -> Maybe a) -> t -> Maybe a
 seqn s t = \x -> s x `mplus` t x
 
 -- | /Non-deterministic choice/
@@ -99,22 +99,6 @@ right = flip $ liftA2 (<|>)
 -- ◯ a
 -- @
 --
--- Apply rule until it no longer applies.
-reduce :: Data on => (on -> Maybe on) -> on -> on
-reduce = rewrite
-
--- | /Apply/
---
--- @
--- ☐ a
--- @
---
--- Apply rule once to all subexpressions in bottom-up.
-
-apply :: Data on => (on -> Maybe on) -> on -> on
-apply f = transform g
-  where g x = maybe x id (f x)
-
 -------------------------------------------------------------------------------
 -- Conditionals
 -------------------------------------------------------------------------------
@@ -130,11 +114,11 @@ try f = f `left` succeed
 
 -- | /While/
 --
--- Repeat while a predicate holds.
---
 -- @
 -- while p f
 -- @
+--
+-- Repeat while a predicate holds.
 
 while :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
 while p f x = if p x
@@ -143,13 +127,11 @@ while p f x = if p x
 
 -- | /Until/
 --
--- Repeat until a predicate holds.
---
--- Repeat until a predicate holds.
---
 -- @
 -- until p f
 -- @
+--
+-- Repeat until a predicate holds.
 
 until :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
 until p f x = if not (p x)
@@ -213,6 +195,22 @@ bottomup = transform
 -- | Monadic variant of bottomup.
 bottomupM :: (Monad m, Data on) => (on -> m on) -> on -> m on
 bottomupM = transformM
+
+-- Apply rule until it no longer applies.
+reduce :: Data on => (on -> Maybe on) -> on -> on
+reduce = rewrite
+
+-- | /Apply/
+--
+-- @
+-- ☐ a
+-- @
+--
+-- Apply rule once to all subexpressions in bottom-up.
+
+apply :: Data on => (on -> Maybe on) -> on -> on
+apply f = transform g
+  where g x = maybe x id (f x)
 
 -------------------------------------------------------------------------------
 -- Fixpoint
