@@ -2,13 +2,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-
 module Match (
 
   -- * Substitutions
   apply,
   bind,
+  compose,
   nullSubst,
+  emptySubst,
+  unionSubst,
 
   -- * Matching
   Subst,
@@ -65,7 +67,7 @@ class Testable a where
 -- | Run pattern matcher
 runMatcher :: Matchable a => a -> a -> (Bool, Subst a a)
 runMatcher a b = runState m mempty
-  where m = zipMatch (tail $ universe a) (tail $ universe b)
+  where m = zipMatch (universe a) (universe b)
 
 zipMatch :: Matchable a => [a] -> [a] -> MatchM a a
 zipMatch [] _  = donematch
@@ -93,6 +95,9 @@ toMap = unSubst
 
 nullSubst :: Subst a b -> Bool
 nullSubst = Map.null . toMap
+
+emptySubst :: Ord a => Subst a b
+emptySubst = mempty
 
 unionSubst :: Matchable a => Subst a b -> Subst a b -> Subst a b
 unionSubst s1 s2 = Subst (toMap s1 `Map.union` toMap s2)
@@ -151,8 +156,3 @@ matchSubst pat expr = snd (runMatcher pat expr)
 -- | Match a pattern returning the list of substitutions
 matchList :: Matchable a => a -> a -> [(a, a)]
 matchList pat expr = (Map.toList . toMap) $ matchSubst pat expr
-
-
-{-instance Matchable a => Monoid (Subst a a) where-}
-  {-mempty  = emptySubst-}
-  {-mappend = compose-}

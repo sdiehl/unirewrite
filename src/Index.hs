@@ -27,8 +27,8 @@ indexed tree = zip [0..] $ children tree
 
 -- | Label each expression with it's path.
 labeled :: (Enum i, Num i, Data on) => on -> [([i], on)]
-labeled a = ([], a) : [ (i:is, b) | (i, c) <- zip [0..] (children a), (is, b)
-                                           <- labeled c ]
+labeled a = ([], a) : [ (x:xs, b) | (x, c)  <- indexed a,
+                                    (xs, b) <- labeled c ]
 
 -- |Extract the nth child of the top expression
 child :: Data a => Int -> a -> Maybe a

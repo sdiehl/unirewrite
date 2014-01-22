@@ -11,6 +11,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     
     Eval,
+    Rule,
     Index,
     Match,
     Pretty,
@@ -20,13 +21,31 @@ library
   Cc-options:          
   -- Ghc-options:        -Wall
   build-depends:       
-      base >=4.6 && <4.7
+      base          >= 4.6 && <4.7
+    , uniplate      >= 1.6.12
+    , hashtables    >= 1.1.2
+    , pretty        >= 1.1.1
+    , pretty-show   >= 1.6 && <1.7
     , transformers
     , containers
     , mtl
-    , uniplate >= 1.6.12
-    , hashtables >= 1.1.2
-    , pretty >= 1.1.1
-    , pretty-show >= 1.6  && <1.7
   default-language:    Haskell2010
   Hs-source-dirs:      src
+
+Test-Suite test
+  type:                exitcode-stdio-1.0
+  Hs-source-dirs:      test
+  main-is:             Test.hs
+  default-language:    Haskell2010
+  build-depends:
+      unirewrite    == 0.1.0.0
+    , base          >= 4.6 && <4.7
+    , uniplate      >= 1.6.12
+    , hashtables    >= 1.1.2
+    , pretty        >= 1.1.1
+    , pretty-show   >= 1.6 && <1.7
+    , transformers
+    , containers
+    , mtl
+    , tasty
+    , tasty-hunit
