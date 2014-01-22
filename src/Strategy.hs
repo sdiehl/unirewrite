@@ -5,6 +5,7 @@ module Strategy (
   failure,
   seqn,
 
+  try,
   until,
   while,
 
@@ -15,6 +16,12 @@ module Strategy (
   reduce,
   compose,
   composes,
+
+  topdown,
+  bottomup,
+
+  fixpoint,
+  fixpointM
 ) where
 
 import Prelude hiding (repeat, fail, sequence, until)
@@ -143,8 +150,15 @@ topdown g a =
    let (current, generate) = uniplate (g a)
    in generate (strMap (topdown g) current)
 
+topdownM :: (Monad m, Data on) => (on -> m on) -> on -> m on
+topdownM f = g
+    where g x = f =<< topdownM g x
+
 bottomup :: Data on => (on -> on) -> on -> on
 bottomup = transform
+
+bottomupM :: (Monad m, Data on) => (on -> m on) -> on -> m on
+bottomupM = transformM
 
 -------------------------------------------------------------------------------
 -- Fixpoint
@@ -161,4 +175,4 @@ fixpoint f = go . iterate f
 fixpointM :: (Monad m, Eq a) => (a -> m a) -> a -> m a
 fixpointM f a = do
    b <- f a
-   if a==b then return a else fixpointM f b
+   if a == b then return a else fixpointM f b
