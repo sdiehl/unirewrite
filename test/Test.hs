@@ -156,6 +156,25 @@ ptest8 = gcases x cs @?= Just out
       ]
     out = Int 3
 
+ptest9 :: Assertion
+ptest9 = gcases x cs @?= Just out
+  where
+    x  = Bool True
+    cs = [
+        (Var "x", Int 1, Var "x")
+      ]
+    out = Int 1
+
+ptest10 :: Assertion
+ptest10 = gcases x cs @?= Just out
+  where
+    x  = Bool False
+    cs = [
+        (Var "x", Int 1, false)
+      , (Var "x", Int 2, true)
+      ]
+    out = Int 2
+
 patternTests :: TestTree
 patternTests = testGroup "Pattern Tests"
   [
@@ -167,4 +186,6 @@ patternTests = testGroup "Pattern Tests"
   , testCase "testPattern6" $ ptest6
   , testCase "testPattern7" $ ptest7
   , testCase "testPattern8" $ ptest8
+  , testCase "testPattern9" $ ptest9
+  , testCase "testPattern10" $ ptest10
   ]

@@ -58,13 +58,15 @@ class (Ord a, Data a) => Matchable a where
 -- Guard conditions
 class Testable a where
   test :: a -> Maybe Bool
-  vaccous :: a
+  invert :: a -> a
+  true :: a
+  false :: a
+
+  true  = invert false
+  false = invert true
 
   testq :: a -> Bool
-  testq x = case test x of
-    (Just True) -> True
-    _           -> False
-
+  testq = maybe False id . test
 
 -- | Run pattern matcher
 runMatcher :: Matchable a => a -> a -> (Bool, Subst a a)

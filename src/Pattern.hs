@@ -46,12 +46,12 @@ pattern (lhs, rhs) expr
 -- tests true.
 gpattern :: (Matchable a, Testable a) => (a, a, a) -> a -> Maybe a
 gpattern (lhs, rhs, grd) expr
-  | matchq =
-    if testq (apply subst grd) then
-      Just $ apply subst rhs
-    else
-      Nothing
-  | otherwise = Nothing
+    | matchq =
+      if testq (apply subst grd) then
+        Just $ apply subst rhs
+      else
+        Nothing
+    | otherwise = Nothing
   where
     (matchq, subst) = runMatcher lhs expr
 
@@ -66,7 +66,7 @@ gcases _ [] = Nothing
 gcases expr cs = msum [gpattern c expr | c <- cs]
 
 toGuarded :: (Matchable a, Testable a) => (a, a) -> (a, a, a)
-toGuarded (a, b) = (a, b, vaccous)
+toGuarded (a, b) = (a, b, true)
 
 toGuardeds :: (Matchable a, Testable a) => [(a, a)] -> [(a, a, a)]
 toGuardeds = map toGuarded
