@@ -17,18 +17,21 @@ module Strategy (
   compose,
   composes,
 
+  all,
+  allM,
+
   topdown,
+  topdownM,
   bottomup,
+  bottomupM,
 
   fixpoint,
   fixpointM
 ) where
 
-import Prelude hiding (repeat, fail, sequence, until)
+import Prelude hiding (repeat, fail, sequence, until, all)
 
 import Data.Data
-import Data.List
-import Data.Maybe
 
 import Control.Monad
 import Control.Applicative
@@ -62,7 +65,7 @@ failure = const Nothing
 -- a ; b
 -- @
 --
--- First do a, then do that b
+-- First do a, then do that b (requiring both to succeed).
 seqn :: MonadPlus m => (t -> m a) -> (t -> m a) -> t -> m a
 seqn s t = \x -> s x `mplus` t x
 
@@ -116,16 +119,38 @@ apply f = transform g
 -- Conditionals
 -------------------------------------------------------------------------------
 
+-- | /Try/
+--
+-- @
+-- try f = f + id
+-- @
+
 try ::  (a -> Maybe a) -> a -> Maybe a
 try f = f `left` succeed
 
--- | Repeat while a predicate holds.
+-- | /While/
+--
+-- Repeat while a predicate holds.
+--
+-- @
+-- while p f
+-- @
+
 while :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
 while p f x = if p x
   then while p f (apply f x)
   else Just x
 
--- | Repeat until a predicate holds.
+-- | /Until/
+--
+-- Repeat until a predicate holds.
+--
+-- Repeat until a predicate holds.
+--
+-- @
+-- until p f
+-- @
+
 until :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
 until p f x = if not (p x)
   then while p f (apply f x)
@@ -145,18 +170,47 @@ composes fs x = msum [f x | f <- fs]
 -- Traversal application
 -------------------------------------------------------------------------------
 
+-- | /All/
+--
+-- @
+-- all f
+-- @
+--
+-- applies f to all immediate child nodes
+
+all :: Data on => (on -> on) -> on -> on
+all = descend
+
+-- | Monadic variant of bottomup.
+allM :: (Monad m, Data on) => (on -> m on) -> on -> m on
+allM = descendM
+
+-- | Topdown application
+--
+-- @
+-- topdown f = f ; all (topdown f)
+-- @
+
 topdown :: Data on => (on -> on) -> on -> on
 topdown g a =
    let (current, generate) = uniplate (g a)
    in generate (strMap (topdown g) current)
 
+-- | Monadic variant of topdown.
 topdownM :: (Monad m, Data on) => (on -> m on) -> on -> m on
 topdownM f = g
     where g x = f =<< topdownM g x
 
+-- | Bottomup application
+--
+-- @
+-- bottomup f = all (bottomup f) ; f
+-- @
+--
 bottomup :: Data on => (on -> on) -> on -> on
 bottomup = transform
 
+-- | Monadic variant of bottomup.
 bottomupM :: (Monad m, Data on) => (on -> m on) -> on -> m on
 bottomupM = transformM
 
