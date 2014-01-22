@@ -57,7 +57,9 @@ class (Ord a, Data a) => Matchable a where
 
 -- Guard conditions
 class Testable a where
-  test  :: a -> Maybe Bool
+  test :: a -> Maybe Bool
+  vaccous :: a
+
   testq :: a -> Bool
   testq x = case test x of
     (Just True) -> True

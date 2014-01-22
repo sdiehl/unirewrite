@@ -1,15 +1,19 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
 module Pattern (
   replaceWith,
   replaceWithMap,
   pattern,
   gpattern,
   cases,
-  gcases
+  gcases,
+
+  toGuarded,
+  toGuardeds
 ) where
 
 import Match
 import Data.Data
-import Data.Maybe
 import qualified Data.Map as Map
 
 import Control.Monad
@@ -43,7 +47,7 @@ pattern (lhs, rhs) expr
 gpattern :: (Matchable a, Testable a) => (a, a, a) -> a -> Maybe a
 gpattern (lhs, rhs, grd) expr
   | matchq =
-    if testq grd then
+    if testq (apply subst grd) then
       Just $ apply subst rhs
     else
       Nothing
@@ -51,11 +55,18 @@ gpattern (lhs, rhs, grd) expr
   where
     (matchq, subst) = runMatcher lhs expr
 
--- | Match a list of patterns binding the rhs if the pattern is matched.
+-- | Match a list of patterns.
 cases :: Matchable a => a -> [(a, a)] -> Maybe a
 cases _ [] = Nothing
 cases expr cs = msum [pattern c expr | c <- cs]
 
+-- | Match a list of guarded patterns.
 gcases :: (Matchable a, Testable a) => a -> [(a, a, a)] -> Maybe a
 gcases _ [] = Nothing
 gcases expr cs = msum [gpattern c expr | c <- cs]
+
+toGuarded :: (Matchable a, Testable a) => (a, a) -> (a, a, a)
+toGuarded (a, b) = (a, b, vaccous)
+
+toGuardeds :: (Matchable a, Testable a) => [(a, a)] -> [(a, a, a)]
+toGuardeds = map toGuarded
