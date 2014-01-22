@@ -1,11 +1,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 
 module Match (
 
   -- * Substitutions
   apply,
   bind,
+  nullSubst,
 
   -- * Matching
   Subst,
@@ -14,6 +17,7 @@ module Match (
   nomatch,
   donematch,
   runMatcher,
+  zipMatch,
 
   -- * Match results
   matches,
@@ -43,8 +47,11 @@ type MatchM a b = State (Subst a b) Bool
 
 class (Ord a, Data a) => Matchable a where
   isPattern   :: a -> Bool
+  isRule      :: a -> Bool
+
   bindPattern :: a -> a
   match       :: a -> a -> MatchM a a
+
 
 -- Guard conditions
 class Testable a where
@@ -57,14 +64,19 @@ class Testable a where
 
 -- | Run pattern matcher
 runMatcher :: Matchable a => a -> a -> (Bool, Subst a a)
-runMatcher a b = runState m emptySubst
-  where m = zipMatch' (universe a) (universe b)
+runMatcher a b = runState m mempty
+  where m = zipMatch (tail $ universe a) (tail $ universe b)
 
-zipMatch' :: Matchable a => [a] -> [a] -> MatchM a a
-zipMatch' [] [] = donematch
-zipMatch' [] _ = nomatch
-zipMatch' _ [] = nomatch
-zipMatch' (x:xs) (y:ys) = match x y >> zipMatch' xs ys
+zipMatch :: Matchable a => [a] -> [a] -> MatchM a a
+zipMatch [] [] = donematch
+zipMatch [] _ = donematch
+zipMatch _ [] = donematch
+zipMatch (x:xs) (y:ys) = do
+  q <- match x y
+  if q then
+    zipMatch xs ys
+  else
+    return q
 
 -------------------------------------------------------------------------------
 -- Substution
@@ -72,7 +84,7 @@ zipMatch' (x:xs) (y:ys) = match x y >> zipMatch' xs ys
 
 -- | Substitution
 newtype Subst a b = Subst { unSubst :: Map.Map a b }
-    deriving Show
+  deriving (Eq, Ord, Show, Monoid)
 
 fromMap :: Map.Map a b -> Subst a b
 fromMap = Subst
@@ -80,18 +92,21 @@ fromMap = Subst
 toMap :: Subst a b -> Map.Map a b
 toMap = unSubst
 
-emptySubst :: Subst a b
-emptySubst = fromMap Map.empty
-
 nullSubst :: Subst a b -> Bool
 nullSubst = Map.null . toMap
 
--- (s1 `compose` s2) `apply` t = s1 `apply` (s2 `apply` t).
-compose :: (Data a, Ord a, Matchable a) => Subst a a -> Subst a a -> Subst a a
-compose s1 s2 = fromMap (Map.unionWith const (apply s1 <$> toMap s2) (toMap s1))
-
 unionSubst :: Matchable a => Subst a b -> Subst a b -> Subst a b
 unionSubst s1 s2 = Subst (toMap s1 `Map.union` toMap s2)
+
+-- | Compose two substutitions.
+--
+-- Confroms to the law
+--
+-- @
+-- (s1 `compose` s2) `apply` t = s1 `apply` (s2 `apply` t).
+-- @
+compose :: (Data a, Ord a, Matchable a) => Subst a a -> Subst a a -> Subst a a
+compose s1 s2 = fromMap (Map.unionWith const (apply s1 <$> toMap s2) (toMap s1))
 
 -- | Apply matching substition to expression
 apply :: Matchable a => Subst a a -> a -> a
@@ -139,6 +154,6 @@ matchList :: Matchable a => a -> a -> [(a, a)]
 matchList pat expr = (Map.toList . toMap) $ matchSubst pat expr
 
 
-instance Matchable a => Monoid (Subst a a) where
-  mempty  = emptySubst
-  mappend = compose
+{-instance Matchable a => Monoid (Subst a a) where-}
+  {-mempty  = emptySubst-}
+  {-mappend = compose-}

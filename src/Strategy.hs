@@ -93,12 +93,6 @@ left = liftA2 (<|>)
 right :: (a -> Maybe a) -> (a -> Maybe a) -> (a -> Maybe a)
 right = flip $ liftA2 (<|>)
 
--- | /Reduce/
---
--- @
--- ◯ a
--- @
---
 -------------------------------------------------------------------------------
 -- Conditionals
 -------------------------------------------------------------------------------
@@ -196,7 +190,14 @@ bottomup = transform
 bottomupM :: (Monad m, Data on) => (on -> m on) -> on -> m on
 bottomupM = transformM
 
+-- | /Reduce/
+--
+-- @
+-- ◯ a
+-- @
+--
 -- Apply rule until it no longer applies.
+
 reduce :: Data on => (on -> Maybe on) -> on -> on
 reduce = rewrite
 
