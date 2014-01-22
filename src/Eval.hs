@@ -5,13 +5,14 @@
 
 module Eval (
   -- * Evaluator
-  evaluatorLoop,
+  runEval,
 
   -- * Evalaution state
   Dir,
   Step,
   Trans,
-  EvalState,
+  Status(..),
+  EvalState(..),
   Derivation,
 
   -- * Classes
@@ -23,7 +24,6 @@ import Control.Monad.RWS
 import Control.Monad.Reader as R
 
 import Data.Data
-import Data.Monoid
 import Data.Generics.Uniplate.Data
 
 -------------------------------------------------------------------------------
@@ -36,7 +36,7 @@ class (Eq a, Data a, Show a) => Evalutable a
 -- Evaluation State
 -------------------------------------------------------------------------------
 
-data Status = Success | Failed deriving (Show)
+data Status = Success | Failed deriving (Eq, Ord, Show)
 
 data EvalState = EvalState
     { depth :: Integer
@@ -45,7 +45,7 @@ data EvalState = EvalState
     , aborted :: Bool
     , maxRecursion :: Integer
     , maxIteration :: Integer
-    } deriving (Show)
+    } deriving (Eq, Show)
 
 defaultEvalState :: EvalState
 defaultEvalState = EvalState
@@ -185,9 +185,8 @@ addStep step = do
     tell (Derivation [step])
     {-return ()-}
 
-evaluatorLoop :: (Evalutable a) => c -> Dir c a -> Trans c a -> a -> IO (a, EvalState, Derivation a)
-evaluatorLoop ctx d f x = runRWST (eval d f x) ctx defaultEvalState
-
+runEval :: (Evalutable a) => c -> Dir c a -> Trans c a -> a -> IO (a, EvalState, Derivation a)
+runEval ctx d f x = runRWST (eval d f x) ctx defaultEvalState
 
 instance Show a => Show (Step a) where
   show (Step rl x (Just y)) = rl ++ " : " ++ show x ++ " -> " ++ show y ++ "."

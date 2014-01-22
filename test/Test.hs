@@ -4,8 +4,11 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Mini
+
+import Eval
 import Match
 import Pattern
+import Strategy
 
 main :: IO ()
 main = defaultMain tests
@@ -218,20 +221,58 @@ patternTests = testGroup "Pattern Tests"
 -- Evaluation
 -------------------------------------------------------------------------------
 
+eval :: Trans () Expr -> Expr -> IO (Expr, EvalState, Derivation Expr)
+eval run x = runEval () dir run x
+  where
+    dir x = return BottomUp
+
+singleRule :: String -> (Expr -> Maybe Expr) -> Trans a Expr
+singleRule name f = \x -> return (name, f x)
+
+composRule :: String -> [Expr -> Maybe Expr] -> Trans a Expr
+composRule name fs = \x -> return (name, Strategy.composes fs x)
+
+-- example rewrites
 dec :: Expr -> Maybe Expr
 dec (Int x) | x > 0 = Just $ Int (x - 1)
 dec _ = Nothing
 
+inc :: Expr -> Maybe Expr
+inc (Int x) = Just $ Int (x + 1)
+inc _ = Nothing
+
+noop :: Expr -> Maybe Expr
+noop _ = Nothing
+
 etest1 :: Assertion
 etest1 = do
-    (res, st, steps) <- evalSupport x
+    (res, _, _) <- eval rl x
     res @?= out
   where
     x   = Int 5
     out = Int 0
+    rl = singleRule "dec" dec
+
+etest2 :: Assertion
+etest2 = do
+    (res, _, _) <- eval rl x
+    res @?= out
+  where
+    x   = Int 5
+    out = Int 0
+    rl = composRule "noop + dec" [noop, dec]
+
+etest3 :: Assertion
+etest3 = do
+    (res, st, _) <- eval rl x
+    assert $ (status st) == Failed
+  where
+    x   = Int 0
+    rl = composRule "inc" [inc]
 
 evalTests :: TestTree
 evalTests = testGroup "Evaluations Tests"
   [
     testCase "evalTest1" $ etest1
+  , testCase "evalTest1" $ etest2
   ]
