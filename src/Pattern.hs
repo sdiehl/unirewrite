@@ -2,7 +2,7 @@ module Pattern (
   replaceWith,
   replaceWithMap,
   pattern,
-  guarded,
+  gpattern,
   matchCase
 ) where
 
@@ -37,8 +37,8 @@ pattern (lhs, rhs) expr
 
 -- | Apply /expr/ to the /lhs/ of a "function" and rebind the /rhs/ scope if it matches the /lhs/ and /guard/
 -- tests true.
-guarded :: (Matchable a, Testable a) => (a, a, a) -> a -> Maybe a
-guarded (lhs, rhs, guard) expr
+gpattern :: (Matchable a, Testable a) => (a, a, a) -> a -> Maybe a
+gpattern (lhs, rhs, guard) expr
   | matchq =
     if fromJust $ test guard then
       Just $ apply subst rhs
