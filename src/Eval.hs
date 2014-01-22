@@ -3,13 +3,16 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Eval (
+  -- * Evaluator
   evaluatorLoop,
 
+  -- * Evalaution state
   Dir,
   Step,
   Trans,
   EvalState,
 
+  -- * Classes
   Evalutable,
   Direction(..)
 ) where
@@ -43,13 +46,13 @@ data EvalState = EvalState
 
 defaultEvalState :: EvalState
 defaultEvalState = EvalState
-  { depth        = 0
-  , iter         = 0
-  , status       = Success
-  , aborted      = False
-  , maxRecursion = 4096
-  , maxIteration = 4096
-  }
+    { depth        = 0
+    , iter         = 0
+    , status       = Success
+    , aborted      = False
+    , maxRecursion = 4096
+    , maxIteration = 4096
+    }
 
 incDepth :: Eval c a ()
 incDepth = modify $ \s -> s { depth = (depth s) + 1 }
@@ -63,6 +66,9 @@ incIter = modify $ \s -> s { iter = (iter s) + 1 }
 abort :: Eval c a ()
 abort = modify $ \s -> s { aborted = True }
 
+failed :: Eval c a ()
+failed = modify $ \s -> s { status = Failed }
+
 -------------------------------------------------------------------------------
 -- Eval Loop
 -------------------------------------------------------------------------------
@@ -71,7 +77,7 @@ abort = modify $ \s -> s { aborted = True }
 type Trans t a = a -> ReaderT t IO (Step a)
 
 -- Evaluation directives
-data Direction = Pass | BottomUp | TopDown | Abort | Some [Bool]
+data Direction = BottomUp | TopDown | Pass | Abort | Some [Bool]
 type Dir t a = a -> ReaderT t IO Direction
 
 type Step a = (String, Maybe a)
@@ -83,11 +89,10 @@ eval d f x  = do
   ctx <- ask
   stop <- limitReached
   if stop then do
-    modify $ \s -> s { status = Failed }
+    failed
     return x
-
   else do
-    dir <- lift $ runDir ctx d x
+    dir <- lift $ runDir d x ctx
     case dir of
 
       -- transform children in bottom-up applicative order
@@ -95,7 +100,7 @@ eval d f x  = do
         incDepth
         y <- descendM (eval d f) x
         decDepth
-        step@(_, z) <- lift $ runTrans ctx f y
+        step@(_, z) <- lift $ runTrans f y ctx
         -- apply to the root
         case z of
           Just r -> do
@@ -107,7 +112,7 @@ eval d f x  = do
             return y
 
       TopDown -> do
-        step@(_, y) <- lift $ runTrans ctx f x
+        step@(_, y) <- lift $ runTrans f x ctx
         -- apply to the root
         z <- case y of
           Just r -> do
@@ -124,7 +129,7 @@ eval d f x  = do
 
       -- do not proceed to children
       Pass -> do
-        step@(_, z) <- lift $ runTrans ctx f x
+        step@(_, z) <- lift $ runTrans f x ctx
         case z of
           Just r -> do
             addStep step
@@ -142,8 +147,6 @@ eval d f x  = do
         return x
 
 
-
-
 limitReached :: Eval c a Bool
 limitReached = do
   i <- gets depth
@@ -153,11 +156,11 @@ limitReached = do
   maxj <- gets maxIteration
   return $ stop || i > maxi || j > maxj
 
-runTrans :: c -> Trans c a -> a -> IO (String, Maybe a)
-runTrans ctx f x = runReaderT (f x) ctx
+runTrans :: Trans c a -> a -> c -> IO (String, Maybe a)
+runTrans f x = runReaderT (f x)
 
-runDir :: c -> Dir c a -> a -> IO Direction
-runDir ctx d x = runReaderT (d x) ctx
+runDir :: Dir c a -> a -> c -> IO Direction
+runDir d x = runReaderT (d x)
 
 addStep :: Step a -> Eval c a ()
 addStep step = do
