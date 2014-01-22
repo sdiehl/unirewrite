@@ -20,6 +20,7 @@ module Match (
   donematch,
   runMatcher,
   zipMatch,
+  defaultMatch,
 
   -- * Match results
   matches,
@@ -39,6 +40,7 @@ import Control.Monad.State
 import Control.Applicative
 
 import Data.Generics.Uniplate.Data
+import Data.Generics.Uniplate.Zipper
 
 -------------------------------------------------------------------------------
 -- Classes
@@ -83,6 +85,17 @@ zipMatch (x:xs) (y:ys) = do
   else
     return q
 
+-- Generic traversal match from the uniplate instance.
+defaultMatch :: Matchable a => a -> a -> MatchM a a
+defaultMatch a b =
+  if length ua == length ub then
+    zipMatch ua ub
+  else
+    nomatch
+  where
+    ua = children a
+    ub = children b
+
 -------------------------------------------------------------------------------
 -- Substution
 -------------------------------------------------------------------------------
@@ -100,6 +113,7 @@ toMap = unSubst
 nullSubst :: Subst a b -> Bool
 nullSubst = Map.null . toMap
 
+-- | Empty substitution
 emptySubst :: Ord a => Subst a b
 emptySubst = mempty
 
@@ -155,7 +169,9 @@ matches pat expr = fst (runMatcher pat expr)
 
 -- | Match a pattern returning a substitution
 matchSubst :: Matchable a => a -> a -> Subst a a
-matchSubst pat expr = snd (runMatcher pat expr)
+matchSubst pat expr = case runMatcher pat expr of
+  (True, subst) -> subst
+  (False, _)    -> emptySubst -- ignore pattern if fails
 
 -- | Match a pattern returning the list of substitutions
 matchList :: Matchable a => a -> a -> [(a, a)]

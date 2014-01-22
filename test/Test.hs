@@ -11,7 +11,7 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "Tests" [matchTests, patternTests]
+tests = testGroup "Tests" [matchTests, patternTests, evalTests]
 
 -------------------------------------------------------------------------------
 -- Match Tests
@@ -71,6 +71,18 @@ test8 = matchList p x @?= m
     x = List [Int 3, List [Int 5]]
     m = [(Var "x", List [Int 3, List [Int 5]])]
 
+test9 :: Assertion
+test9 = assert $ not $ matches p x
+  where
+    p = List [List [List [List [List [Var "x"]]]]]
+    x = List [List [List [List [List [Int 3, Int 4]]]]]
+
+test10 :: Assertion
+test10 = assert $ null $ matchList p x
+  where
+    p = List [List [List [List [List [Var "x"]]]]]
+    x = List [List [List [List [List [Int 3, Int 4]]]]]
+
 matchTests :: TestTree
 matchTests = testGroup "Match Tests"
   [
@@ -82,6 +94,8 @@ matchTests = testGroup "Match Tests"
   , testCase "testPattern6" $ test6
   , testCase "testPattern7" $ test7
   , testCase "testPattern8" $ test8
+  , testCase "testPattern9" $ test9
+  , testCase "testPattern10" $ test10
   ]
 
 -------------------------------------------------------------------------------
@@ -175,6 +189,15 @@ ptest10 = gcases x cs @?= Just out
       ]
     out = Int 2
 
+ptest11 :: Assertion
+ptest11 = cases x cs @?= Just out
+  where
+    x  = List [Int 1, Int 2]
+    cs = [
+        (List [Var "x", Var "y"], List [Var "y", Var "x"])
+      ]
+    out = List [Int 2, Int 1]
+
 patternTests :: TestTree
 patternTests = testGroup "Pattern Tests"
   [
@@ -188,4 +211,27 @@ patternTests = testGroup "Pattern Tests"
   , testCase "testPattern8" $ ptest8
   , testCase "testPattern9" $ ptest9
   , testCase "testPattern10" $ ptest10
+  , testCase "testPattern11" $ ptest11
+  ]
+
+-------------------------------------------------------------------------------
+-- Evaluation
+-------------------------------------------------------------------------------
+
+dec :: Expr -> Maybe Expr
+dec (Int x) | x > 0 = Just $ Int (x - 1)
+dec _ = Nothing
+
+etest1 :: Assertion
+etest1 = do
+    (res, st, steps) <- evalSupport x
+    res @?= out
+  where
+    x   = Int 5
+    out = Int 0
+
+evalTests :: TestTree
+evalTests = testGroup "Evaluations Tests"
+  [
+    testCase "evalTest1" $ etest1
   ]

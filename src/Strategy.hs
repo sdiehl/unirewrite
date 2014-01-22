@@ -38,6 +38,7 @@ import Control.Applicative
 
 import Data.Generics.Str
 import Data.Generics.Uniplate.Data
+import Data.Traversable
 
 -- | /Identity/
 --
