@@ -68,9 +68,8 @@ runMatcher a b = runState m mempty
   where m = zipMatch (tail $ universe a) (tail $ universe b)
 
 zipMatch :: Matchable a => [a] -> [a] -> MatchM a a
-zipMatch [] [] = donematch
-zipMatch [] _ = donematch
-zipMatch _ [] = donematch
+zipMatch [] _  = donematch
+zipMatch _ []  = nomatch
 zipMatch (x:xs) (y:ys) = do
   q <- match x y
   if q then
