@@ -3,6 +3,10 @@ module Main where
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.RWS
+
 import Mini
 
 import Eval
@@ -221,16 +225,26 @@ patternTests = testGroup "Pattern Tests"
 -- Evaluation
 -------------------------------------------------------------------------------
 
-eval :: TransM () Expr -> Expr -> IO (Expr, EvalState () Expr, Derivation Expr)
+eval :: Trans () Expr -> Expr -> IO (Expr, EvalState () Expr, Derivation Expr)
 eval run x = runEval () dir run x
   where
     dir = const $ return BottomUp
 
-singleRule :: String -> (Expr -> Maybe Expr) -> TransM a Expr
+singleRule :: String -> (Expr -> Maybe Expr) -> Trans () Expr
 singleRule name f = \x -> return (name, f x)
 
-composRule :: String -> [Expr -> Maybe Expr] -> TransM a Expr
+composRule :: String -> [Expr -> Maybe Expr] -> Trans () Expr
 composRule name fs = \x -> return (name, Strategy.composes fs x)
+
+recursiveRule :: Trans () Expr
+recursiveRule (List [x, y]) = do
+  ctx <- ask
+  l <- evalRec ctx x
+  case l of
+    Just (Int j) -> return ("rec", Just (Int $ j+1))
+    _            -> return ("rec", Nothing)
+recursiveRule (Int n) | n < 10 = return ("rec", Just $ Int (n+1))
+recursiveRule _ = return ("rec", Nothing)
 
 -- example rewrites
 dec :: Expr -> Maybe Expr
@@ -270,10 +284,21 @@ etest3 = do
     x   = Int 0
     rl = composRule "inc" [inc]
 
+etest4 :: Assertion
+etest4 = do
+    (res, st, deriv) <- eval rl x
+    print deriv
+    res @?= out
+  where
+    x   = List [Int 0, Int 1]
+    rl  = recursiveRule
+    out = Int 11
+
 evalTests :: TestTree
 evalTests = testGroup "Evaluations Tests"
   [
     testCase "evalTest1" $ etest1
   , testCase "evalTest2" $ etest2
-  , testCase "evalTest3" $ etest2
+  , testCase "evalTest3" $ etest3
+  , testCase "evalTest4" $ etest4
   ]

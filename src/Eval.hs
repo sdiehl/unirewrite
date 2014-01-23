@@ -5,7 +5,9 @@
 
 module Eval (
   -- * Evaluator
+  Eval,
   runEval,
+  evalRec,
 
   -- * Evalaution state
   Dir,
@@ -13,10 +15,6 @@ module Eval (
   Status(..),
   EvalState(..),
   Derivation(..),
-
-  -- * Transformer
-  TransformerState(..),
-  TransM,
   Trans,
 
   -- * Classes
@@ -35,17 +33,26 @@ import Data.Generics.Uniplate.Data
 -- Transformations
 -------------------------------------------------------------------------------
 
--- Term transformations
-type TransM c a = a -> ReaderT (TransformerState c a) IO (Witness, Maybe a)
-type Trans c a = a -> Eval c a a
+type Witness = String
+type Trans c a = (a -> Eval c a (Witness, Maybe a))
 
-data TransformerState c a = TransformerState
-    { teval :: a -> Eval c a a
-    , env  :: c
-    }
+-------------------------------------------------------------------------------
+-- Derivations
+-------------------------------------------------------------------------------
 
-runTrans :: TransM c a -> a -> Trans c a -> c -> IO (Witness, Maybe a)
-runTrans f x ev ctx = runReaderT (f x) (TransformerState ev ctx)
+-- Derivation
+data Step a = Step Witness a (Maybe a)
+  deriving (Eq)
+
+newtype Derivation a = Derivation { unDerivation :: [Step a] }
+  deriving (Eq, Monoid)
+
+instance Show a => Show (Step a) where
+  show (Step rl x (Just y)) = rl ++ " : " ++ show x ++ " -> " ++ show y ++ "."
+  show (Step rl x Nothing) = rl ++ " : " ++ show x  ++ "."
+
+instance Show a => Show (Derivation a) where
+  show (Derivation xs) = unlines (map show xs)
 
 -------------------------------------------------------------------------------
 -- Evaluation Classes
@@ -66,6 +73,7 @@ data EvalState c a = EvalState
     , aborted      :: Bool
     , maxRecursion :: Integer
     , maxIteration :: Integer
+    , self         :: a -> Eval c a a
     }
 
 defaultEvalState :: EvalState c a
@@ -76,6 +84,7 @@ defaultEvalState = EvalState
     , aborted      = False
     , maxRecursion = 4096
     , maxIteration = 4096
+    , self         = undefined
     }
 
 incDepth :: Eval c a ()
@@ -97,18 +106,9 @@ failed = modify $ \s -> s { status = Failed }
 -- Eval Loop
 -------------------------------------------------------------------------------
 
-type Witness = String
-
 -- Evaluation directives
 data Direction = BottomUp | TopDown | Pass | Abort | Some [Bool]
 type Dir c a = a -> ReaderT c IO Direction
-
--- Derivation
-data Step a = Step Witness a (Maybe a)
-  deriving (Eq)
-
-newtype Derivation a = Derivation { unDerivation :: [Step a] }
-  deriving (Eq, Monoid)
 
 type Eval c a r = (RWST
                      c               --  Evaluation context
@@ -117,7 +117,7 @@ type Eval c a r = (RWST
                      IO              --  Underlying IO
                      r)              --  Result
 
-eval :: Evalutable a => Dir c a -> TransM c a -> a -> Eval c a a
+eval :: Evalutable a => Dir c a -> (a -> Eval c a (Witness, Maybe a)) -> a -> Eval c a a
 eval d f x  = do
   ctx <- ask
   stop <- limitReached
@@ -133,7 +133,7 @@ eval d f x  = do
         incDepth
         y <- descendM (eval d f) x
         decDepth
-        step@(_, z) <- lift $ runTrans f x (eval d f) ctx
+        step@(_, z) <- f x
         -- apply to the root
         case z of
           Just r -> do
@@ -144,7 +144,7 @@ eval d f x  = do
           Nothing -> return y
 
       TopDown -> do
-        step@(_, y) <- lift $ runTrans f x (eval d f) ctx
+        step@(_, y) <- f x
         -- apply to the root
         z <- case y of
           Just r -> do
@@ -160,7 +160,7 @@ eval d f x  = do
 
       -- do not proceed to children
       Pass -> do
-        step@(_, z) <- lift $ runTrans f x (eval d f) ctx
+        step@(_, z) <- f x
         case z of
           Just r -> do
             addStep (mkStep x step)
@@ -195,12 +195,30 @@ addStep step = do
   i <- gets depth
   when (i == 0) $ tell (Derivation [step])
 
-runEval :: (Evalutable a) => c -> Dir c a -> TransM c a -> a -> IO (a, EvalState c a, Derivation a)
-runEval ctx d f x = runRWST (eval d f x) ctx defaultEvalState
+runEval :: (Evalutable a) => c -> Dir c a -> Trans c a -> a -> IO (a, EvalState c a, Derivation a)
+runEval ctx d f x = runRWST (eval d f x) ctx (defaultEvalState { self = eval d f })
 
-instance Show a => Show (Step a) where
-  show (Step rl x (Just y)) = rl ++ " : " ++ show x ++ " -> " ++ show y ++ "."
-  show (Step rl x Nothing) = rl ++ " : " ++ show x  ++ "."
-
-instance Show a => Show (Derivation a) where
-  show (Derivation xs) = unlines (map show xs)
+-- | Embed a sub-evaluator within another evaluator, sharing the same initial state but yielding a pure result
+-- to the external one and the extending the external state with the resulting artifacts.
+--
+-- @
+--   Eval s a (Eval t a) --> Eval (join s t) a
+--   +-------------+         +-------------+
+--   |             |         |             |
+--   |  +-----+    |         |             |
+--   |  |  a  | ---|---------|--->  a      |
+--   |  +-----+    |         |             |
+--   |             |         |             |
+--   +-------------+         +-------------+
+-- @
+--
+evalRec :: (Evalutable a) => c -> a -> Eval c a (Maybe a)
+evalRec ctx x = do
+  st <- get
+  (res, st', deriv) <- lift $ runRWST (self st $ x) ctx st
+  if status st == Success then do
+    tell deriv
+    put st'
+    return $ Just res
+  else
+    return Nothing
