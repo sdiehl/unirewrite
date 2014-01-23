@@ -212,9 +212,10 @@ runEval ctx d f x = runRWST (eval d f x) ctx (defaultEvalState { self = eval d f
 --   +-------------+         +-------------+
 -- @
 --
-evalRec :: (Evalutable a) => c -> a -> Eval c a (Maybe a)
-evalRec ctx x = do
+evalRec :: (Evalutable a) => a -> Eval c a (Maybe a)
+evalRec x = do
   st <- get
+  ctx <- ask
   (res, st', deriv) <- lift $ runRWST (self st $ x) ctx st
   if status st == Success then do
     tell deriv

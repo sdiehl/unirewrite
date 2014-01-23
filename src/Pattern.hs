@@ -34,7 +34,7 @@ replaceWithMap subst = transform fn
 -- Pattern Matching
 -------------------------------------------------------------------------------
 
--- | Apply /expr/ to the /lhs/ of a "function" and rebind the /rhs/ scope if it matches the /lhs/
+-- | Apply /expr/ to the /lhs/ of an expression and rebind the /rhs/ scope if it matches the /lhs/
 pattern :: Matchable a => (a, a) -> a -> Maybe a
 pattern (lhs, rhs) expr
     | matchq    = Just $ apply subst rhs
@@ -42,7 +42,7 @@ pattern (lhs, rhs) expr
   where
     (matchq, subst) = runMatcher lhs expr
 
--- | Apply /expr/ to the /lhs/ of a "function" and rebind the /rhs/ scope if it matches the /lhs/ and /guard/
+-- | Apply /expr/ to the /lhs/ of an expression and rebind the /rhs/ scope if it matches the /lhs/ and /guard/
 -- tests true.
 gpattern :: (Matchable a, Testable a) => (a, a, a) -> a -> Maybe a
 gpattern (lhs, rhs, grd) expr

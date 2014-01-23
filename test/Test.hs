@@ -238,8 +238,7 @@ composRule name fs = \x -> return (name, Strategy.composes fs x)
 
 recursiveRule :: Trans () Expr
 recursiveRule (List [x, y]) = do
-  ctx <- ask
-  l <- evalRec ctx x
+  l <- evalRec x
   case l of
     Just (Int j) -> return ("rec", Just (Int $ j+1))
     _            -> return ("rec", Nothing)
