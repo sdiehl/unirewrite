@@ -19,7 +19,7 @@ Tests
 -----
 
 ```bash
-cabal test
+$ cabal test
 ```
 
 License

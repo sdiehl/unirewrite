@@ -10,16 +10,21 @@ module Eval (
   -- * Evalaution state
   Dir,
   Step,
-  Trans,
   Status(..),
   EvalState(..),
-  Derivation,
+  Derivation(..),
+
+  -- * Transformer
+  TransformerState(..),
+  TransM,
+  Trans,
 
   -- * Classes
-  Evalutable,
+  Evalutable(..),
   Direction(..)
 ) where
 
+import Control.Applicative
 import Control.Monad.RWS
 import Control.Monad.Reader as R
 
@@ -27,10 +32,26 @@ import Data.Data
 import Data.Generics.Uniplate.Data
 
 -------------------------------------------------------------------------------
+-- Transformations
+-------------------------------------------------------------------------------
+
+-- Term transformations
+type TransM c a = a -> ReaderT (TransformerState c a) IO (Witness, Maybe a)
+type Trans c a = a -> Eval c a a
+
+data TransformerState c a = TransformerState
+    { teval :: a -> Eval c a a
+    , env  :: c
+    }
+
+runTrans :: TransM c a -> a -> Trans c a -> c -> IO (Witness, Maybe a)
+runTrans f x ev ctx = runReaderT (f x) (TransformerState ev ctx)
+
+-------------------------------------------------------------------------------
 -- Evaluation Classes
 -------------------------------------------------------------------------------
 
-class (Eq a, Data a, Show a) => Evalutable a
+class (Eq a, Data a, Show a) => Evalutable a where
 
 -------------------------------------------------------------------------------
 -- Evaluation State
@@ -38,16 +59,16 @@ class (Eq a, Data a, Show a) => Evalutable a
 
 data Status = Success | Failed deriving (Eq, Ord, Show)
 
-data EvalState = EvalState
-    { depth :: Integer
-    , iter  :: Integer
-    , status :: Status
-    , aborted :: Bool
+data EvalState c a = EvalState
+    { depth        :: Integer
+    , iter         :: Integer
+    , status       :: Status
+    , aborted      :: Bool
     , maxRecursion :: Integer
     , maxIteration :: Integer
-    } deriving (Eq, Show)
+    }
 
-defaultEvalState :: EvalState
+defaultEvalState :: EvalState c a
 defaultEvalState = EvalState
     { depth        = 0
     , iter         = 0
@@ -76,27 +97,27 @@ failed = modify $ \s -> s { status = Failed }
 -- Eval Loop
 -------------------------------------------------------------------------------
 
--- Term transformations
-type Trans t a = a -> ReaderT t IO (String, Maybe a)
+type Witness = String
 
 -- Evaluation directives
 data Direction = BottomUp | TopDown | Pass | Abort | Some [Bool]
-type Dir t a = a -> ReaderT t IO Direction
+type Dir c a = a -> ReaderT c IO Direction
 
 -- Derivation
-data Step a = Step String a (Maybe a)
+data Step a = Step Witness a (Maybe a)
+  deriving (Eq)
 
 newtype Derivation a = Derivation { unDerivation :: [Step a] }
-  deriving Monoid
+  deriving (Eq, Monoid)
 
 type Eval c a r = (RWST
-                     c              --  Evaluation context
-                     (Derivation a) --  Steps
-                     EvalState      --  Evaluation state
-                     IO             --  Underlying IO
-                     r)             --  Result
+                     c               --  Evaluation context
+                     (Derivation a)  --  Steps
+                     (EvalState c a) --  Evaluation state
+                     IO              --  Underlying IO
+                     r)              --  Result
 
-eval :: Evalutable a => Dir c a -> Trans c a -> a -> Eval c a a
+eval :: Evalutable a => Dir c a -> TransM c a -> a -> Eval c a a
 eval d f x  = do
   ctx <- ask
   stop <- limitReached
@@ -112,7 +133,7 @@ eval d f x  = do
         incDepth
         y <- descendM (eval d f) x
         decDepth
-        step@(_, z) <- lift $ runTrans f y ctx
+        step@(_, z) <- lift $ runTrans f x (eval d f) ctx
         -- apply to the root
         case z of
           Just r -> do
@@ -123,7 +144,7 @@ eval d f x  = do
           Nothing -> return y
 
       TopDown -> do
-        step@(_, y) <- lift $ runTrans f x ctx
+        step@(_, y) <- lift $ runTrans f x (eval d f) ctx
         -- apply to the root
         z <- case y of
           Just r -> do
@@ -139,7 +160,7 @@ eval d f x  = do
 
       -- do not proceed to children
       Pass -> do
-        step@(_, z) <- lift $ runTrans f x ctx
+        step@(_, z) <- lift $ runTrans f x (eval d f) ctx
         case z of
           Just r -> do
             addStep (mkStep x step)
@@ -166,9 +187,6 @@ limitReached = do
   maxj <- gets maxIteration
   return $ stop || i > maxi || j > maxj
 
-runTrans :: Trans c a -> a -> c -> IO (String, Maybe a)
-runTrans f x = runReaderT (f x)
-
 runDir :: Dir c a -> a -> c -> IO Direction
 runDir d x = runReaderT (d x)
 
@@ -177,7 +195,7 @@ addStep step = do
   i <- gets depth
   when (i == 0) $ tell (Derivation [step])
 
-runEval :: (Evalutable a) => c -> Dir c a -> Trans c a -> a -> IO (a, EvalState, Derivation a)
+runEval :: (Evalutable a) => c -> Dir c a -> TransM c a -> a -> IO (a, EvalState c a, Derivation a)
 runEval ctx d f x = runRWST (eval d f x) ctx defaultEvalState
 
 instance Show a => Show (Step a) where

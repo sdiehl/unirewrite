@@ -221,15 +221,15 @@ patternTests = testGroup "Pattern Tests"
 -- Evaluation
 -------------------------------------------------------------------------------
 
-eval :: Trans () Expr -> Expr -> IO (Expr, EvalState, Derivation Expr)
+eval :: TransM () Expr -> Expr -> IO (Expr, EvalState () Expr, Derivation Expr)
 eval run x = runEval () dir run x
   where
-    dir x = return BottomUp
+    dir = const $ return BottomUp
 
-singleRule :: String -> (Expr -> Maybe Expr) -> Trans a Expr
+singleRule :: String -> (Expr -> Maybe Expr) -> TransM a Expr
 singleRule name f = \x -> return (name, f x)
 
-composRule :: String -> [Expr -> Maybe Expr] -> Trans a Expr
+composRule :: String -> [Expr -> Maybe Expr] -> TransM a Expr
 composRule name fs = \x -> return (name, Strategy.composes fs x)
 
 -- example rewrites
@@ -274,5 +274,6 @@ evalTests :: TestTree
 evalTests = testGroup "Evaluations Tests"
   [
     testCase "evalTest1" $ etest1
-  , testCase "evalTest1" $ etest2
+  , testCase "evalTest2" $ etest2
+  , testCase "evalTest3" $ etest2
   ]
