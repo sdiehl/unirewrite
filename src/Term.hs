@@ -52,7 +52,7 @@ extractWith p f x = [f y | y <- universe x, p y]
 
 -- |A pattern is linear if it contains each variable at most once.
 isLinear :: IsTerm a var => a -> Bool
-isLinear x = (List.nub args) == args
+isLinear x = List.nub args == args
   where args = variables x
 
 -- |A pattern is nonlinear if it contains a variable more than once.
@@ -60,4 +60,4 @@ isNonLinear :: IsTerm a var => a -> Bool
 isNonLinear x = not (isLinear x)
 
 subset :: Eq a => [a] -> [a] -> Bool
-subset xs ys = and [elem x ys | x <- xs]
+subset xs ys = and [x `elem` ys | x <- xs]

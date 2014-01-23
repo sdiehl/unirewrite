@@ -33,6 +33,7 @@ module Match (
 ) where
 
 import Data.Data
+import Data.Maybe
 import Data.Monoid
 import qualified Data.Map as Map
 
@@ -68,7 +69,7 @@ class Testable a where
   false = invert true
 
   testq :: a -> Bool
-  testq = maybe False id . test
+  testq = fromMaybe False . test
 
 -- | Run pattern matcher
 runMatcher :: Matchable a => a -> a -> (Bool, Subst a a)

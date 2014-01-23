@@ -6,7 +6,7 @@ Term rewriting machinery for arbitrary data types using the Uniplate generic pro
 Installation
 ------------
 
-```shell
+```bash
 $ cabal sandbox init
 $ cabal configure
 $ cabal install --only-dependencies
@@ -18,7 +18,7 @@ Usage
 Tests
 -----
 
-```shell
+```bash
 cabal test
 ```
 

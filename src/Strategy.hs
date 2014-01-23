@@ -32,6 +32,7 @@ module Strategy (
 import Prelude hiding (repeat, fail, sequence, until, all)
 
 import Data.Data
+import Data.Maybe
 
 import Control.Monad
 import Control.Applicative
@@ -67,8 +68,8 @@ failure = const Nothing
 -- @
 --
 -- First do a, then do b (requiring both to succeed).
-seqn :: (t -> Maybe a) -> (t -> Maybe a) -> t -> Maybe a
-seqn s t = \x -> s x `mplus` t x
+seqn :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
+seqn s t x = s x `mplus` t x
 
 -- | /Non-deterministic choice/
 --
@@ -79,7 +80,7 @@ seqn s t = \x -> s x `mplus` t x
 -- @
 --
 -- Do a, if a fails then do b.
-left :: (a -> Maybe a) -> (a -> Maybe a) -> (a -> Maybe a)
+left :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
 left = liftA2 (<|>)
 
 -- | /Non-deterministic choice/
@@ -91,7 +92,7 @@ left = liftA2 (<|>)
 -- @
 --
 -- Do b, if b fails then do a.
-right :: (a -> Maybe a) -> (a -> Maybe a) -> (a -> Maybe a)
+right :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
 right = flip $ liftA2 (<|>)
 
 -------------------------------------------------------------------------------
@@ -212,7 +213,7 @@ reduce = rewrite
 
 apply :: Data on => (on -> Maybe on) -> on -> on
 apply f = transform g
-  where g x = maybe x id (f x)
+  where g x = fromMaybe x (f x)
 
 -------------------------------------------------------------------------------
 -- Fixpoint

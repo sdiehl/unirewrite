@@ -58,13 +58,13 @@ defaultEvalState = EvalState
     }
 
 incDepth :: Eval c a ()
-incDepth = modify $ \s -> s { depth = (depth s) + 1 }
+incDepth = modify $ \s -> s { depth = depth s + 1 }
 
 decDepth :: Eval c a ()
-decDepth = modify $ \s -> s { depth = (depth s) - 1 }
+decDepth = modify $ \s -> s { depth = depth s - 1 }
 
 incIter :: Eval c a ()
-incIter = modify $ \s -> s { iter = (iter s) + 1 }
+incIter = modify $ \s -> s { iter = iter s + 1 }
 
 abort :: Eval c a ()
 abort = modify $ \s -> s { aborted = True }
@@ -96,7 +96,7 @@ type Eval c a r = (RWST
                      IO             --  Underlying IO
                      r)             --  Result
 
-eval :: (Evalutable a) => Dir c a -> Trans c a -> a -> Eval c a a
+eval :: Evalutable a => Dir c a -> Trans c a -> a -> Eval c a a
 eval d f x  = do
   ctx <- ask
   stop <- limitReached
@@ -120,8 +120,7 @@ eval d f x  = do
             incIter
             eval d f r
           -- If in normal form then halt
-          Nothing -> do
-            return y
+          Nothing -> return y
 
       TopDown -> do
         step@(_, y) <- lift $ runTrans f x ctx
@@ -132,8 +131,7 @@ eval d f x  = do
             incIter
             eval d f r
           -- If in normal form then halt
-          Nothing -> do
-            return x
+          Nothing -> return x
         incDepth
         res <- descendM (eval d f) z
         decDepth
@@ -148,11 +146,9 @@ eval d f x  = do
             incIter
             eval d f r
           -- If in normal form then halt
-          Nothing -> do
-            return x
+          Nothing -> return x
 
-      Some xs -> do
-        undefined
+      Some xs -> undefined
 
       Abort -> do
         abort
@@ -179,11 +175,7 @@ runDir d x = runReaderT (d x)
 addStep :: Step a -> Eval c a ()
 addStep step = do
   i <- gets depth
-  if i == 0 then
-    tell (Derivation [step])
-  else do
-    tell (Derivation [step])
-    {-return ()-}
+  when (i == 0) $ tell (Derivation [step])
 
 runEval :: (Evalutable a) => c -> Dir c a -> Trans c a -> a -> IO (a, EvalState, Derivation a)
 runEval ctx d f x = runRWST (eval d f x) ctx defaultEvalState
@@ -193,4 +185,4 @@ instance Show a => Show (Step a) where
   show (Step rl x Nothing) = rl ++ " : " ++ show x  ++ "."
 
 instance Show a => Show (Derivation a) where
-  show (Derivation xs) = unlines (map show (xs))
+  show (Derivation xs) = unlines (map show xs)
