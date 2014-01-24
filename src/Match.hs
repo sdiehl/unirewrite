@@ -50,12 +50,15 @@ import Data.Generics.Uniplate.Zipper
 -- | Pattern match monad
 type MatchM a b = State (Subst a b) Bool
 
-class (Ord a, Data a) => Matchable a where
+class (Testable a, Ord a, Data a) => Matchable a where
   isPattern   :: a -> Bool
   isRule      :: a -> Bool
 
   bindPattern :: a -> a
   match       :: a -> a -> MatchM a a
+
+  ruleEx :: a -> (a, a)
+  gruleEx :: a -> (a, a, a)
 
 
 -- Guard conditions
