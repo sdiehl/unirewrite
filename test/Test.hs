@@ -286,12 +286,30 @@ etest3 = do
 etest4 :: Assertion
 etest4 = do
     (res, st, deriv) <- eval rl x
-    print deriv
     res @?= out
   where
     x   = List [Int 0, Int 1]
     rl  = recursiveRule
     out = Int 11
+
+etest5 :: Assertion
+etest5 = do
+    (res, _, deriv) <- eval rl x
+    res @?= out
+  where
+    x   = List [Int 1, Int 2]
+    rl  = singleRule "reified" $ compileRule $ Rule lhs rhs
+    out = List [Int 2, Int 1]
+
+    lhs = List [Int 1, Var "x"]
+    rhs = List [Var "x", Int 1]
+
+compileGRule :: Expr -> Expr -> Eval c Expr (Expr -> Maybe Expr)
+compileGRule g (Rule a b) = do
+  cond <- evalRec g
+  case cond of
+    Just x -> return $ gpattern (a, b, x)
+    Nothing -> undefined
 
 evalTests :: TestTree
 evalTests = testGroup "Evaluations Tests"
@@ -300,4 +318,5 @@ evalTests = testGroup "Evaluations Tests"
   , testCase "evalTest2" $ etest2
   , testCase "evalTest3" $ etest3
   , testCase "evalTest4" $ etest4
+  , testCase "evalTest5" $ etest5
   ]
