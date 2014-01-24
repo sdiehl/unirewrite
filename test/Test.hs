@@ -304,13 +304,6 @@ etest5 = do
     lhs = List [Int 1, Var "x"]
     rhs = List [Var "x", Int 1]
 
-compileGRule :: Expr -> Expr -> Eval c Expr (Expr -> Maybe Expr)
-compileGRule g (Rule a b) = do
-  cond <- evalRec g
-  case cond of
-    Just x -> return $ gpattern (a, b, x)
-    Nothing -> undefined
-
 evalTests :: TestTree
 evalTests = testGroup "Evaluations Tests"
   [
