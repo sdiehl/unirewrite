@@ -195,7 +195,9 @@ addStep step = do
   i <- gets depth
   when (i == 0) $ tell (Derivation [step])
 
-runEval :: (Evalutable a) => c -> Dir c a -> Trans c a -> a -> IO (a, EvalState c a, Derivation a)
+runEval :: Evalutable a => c -> Dir c a
+                        -> Trans c a
+                        -> a -> IO (a, EvalState c a, Derivation a)
 runEval ctx d f x = runRWST (eval d f x) ctx (defaultEvalState { self = eval d f })
 
 -- | Embed a sub-evaluator within another evaluator, sharing the same initial state but yielding a pure result
@@ -205,9 +207,9 @@ runEval ctx d f x = runRWST (eval d f x) ctx (defaultEvalState { self = eval d f
 --   Eval s a (Eval t a) --> Eval (join s t) a
 --   +-------------+         +-------------+
 --   |             |         |             |
---   |  +-----+    |         |             |
---   |  |  a  | ---|---------|--->  a      |
---   |  +-----+    |         |             |
+--   |   +-----+   |         |             |
+--   |   |  a  | ---|--------|--->  a      |
+--   |   +-----+   |         |             |
 --   |             |         |             |
 --   +-------------+         +-------------+
 -- @
