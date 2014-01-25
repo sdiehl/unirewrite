@@ -8,6 +8,9 @@ module Pattern (
   cases,
   gcases,
 
+  patternlist,
+  gpatternlist,
+
   toGuarded,
   toGuardeds
 ) where
@@ -70,3 +73,17 @@ toGuarded (a, b) = (a, b, true)
 
 toGuardeds :: (Matchable a, Testable a) => [(a, a)] -> [(a, a, a)]
 toGuardeds = map toGuarded
+
+patternlist :: Matchable a => [(a, a)] -> a -> Maybe a
+patternlist [] _ = Nothing
+patternlist (x:xs) expr =
+  case pattern x expr of
+    Just t -> Just t
+    Nothing -> patternlist xs expr
+
+gpatternlist :: Matchable a => [(a, a, a)] -> a -> Maybe a
+gpatternlist [] _ = Nothing
+gpatternlist (x:xs) expr =
+  case gpattern x expr of
+    Just t -> Just t
+    Nothing -> gpatternlist xs expr
