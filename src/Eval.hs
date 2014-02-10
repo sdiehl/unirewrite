@@ -17,6 +17,15 @@ module Eval (
   Derivation(..),
   Trans,
 
+  -- * Internal evaluation
+  defaultEvalState,
+  incIter,
+  incDepth,
+  decDepth,
+  limitReached,
+  failed,
+  abort,
+
   -- * Classes
   Evalutable(..),
   Direction(..)
@@ -34,7 +43,7 @@ import Data.Generics.Uniplate.Data
 -------------------------------------------------------------------------------
 
 type Witness = String
-type Trans c a = (a -> Eval c a (Witness, Maybe a))
+type Trans c a = a -> Eval c a (Witness, Maybe a)
 
 -------------------------------------------------------------------------------
 -- Derivations
@@ -208,13 +217,13 @@ runEval ctx d f x = runRWST (eval d f x) ctx (defaultEvalState { self = eval d f
 --   +-------------+         +-------------+
 --   |             |         |             |
 --   |   +-----+   |         |             |
---   |   |  a  | ---|--------|--->  a      |
+--   |   |  a  | --|---------|--->  a      |
 --   |   +-----+   |         |             |
 --   |             |         |             |
 --   +-------------+         +-------------+
 -- @
 --
-evalRec :: (Evalutable a) => a -> Eval c a (Maybe a)
+evalRec :: Evalutable a => a -> Eval c a (Maybe a)
 evalRec x = do
   st <- get
   ctx <- ask

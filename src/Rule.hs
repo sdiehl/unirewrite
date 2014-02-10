@@ -15,7 +15,7 @@ import Data.Foldable
 data Rule a = Rule
     { ruleId :: String
     , ruleFn :: a -> Maybe a
-    , ruleGd :: a
+    , ruleGd :: Maybe a
     }
 
 instance Show (Rule a) where
@@ -60,3 +60,4 @@ toPair (RuleDef x y) = (x, y)
 
 compileRule :: Matchable a => a -> (a -> Maybe a)
 compileRule x | isRule x = pattern . ruleEx $ x
+              | otherwise = const $ Just x

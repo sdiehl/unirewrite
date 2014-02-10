@@ -58,8 +58,7 @@ class (Testable a, Ord a, Data a) => Matchable a where
   match       :: a -> a -> MatchM a a
 
   ruleEx :: a -> (a, a)
-  gruleEx :: a -> (a, a, a)
-
+  {-gruleEx :: a -> (a, a, a)-}
 
 -- Guard conditions
 class Testable a where
