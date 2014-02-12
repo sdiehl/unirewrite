@@ -39,7 +39,6 @@ import Control.Applicative
 
 import Data.Generics.Str
 import Data.Generics.Uniplate.Data
-import Data.Traversable
 
 -- | /Identity/
 --
@@ -48,7 +47,7 @@ import Data.Traversable
 -- @
 --
 -- do nothing succesfully
-succeed :: on -> Maybe on
+succeed :: a -> Maybe a
 succeed = Just
 
 -- | /Failure/
@@ -58,7 +57,7 @@ succeed = Just
 -- @
 --
 -- Do nothing unsuccesfully
-failure :: on -> Maybe on
+failure :: a -> Maybe a
 failure = const Nothing
 
 -- | /Sequence/
@@ -116,10 +115,10 @@ try f = f `left` succeed
 --
 -- Repeat while a predicate holds.
 
-while :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
-while p f x = if p x
-  then while p f (apply f x)
-  else Just x
+while :: Data a => (a -> Bool) -> (a -> Maybe a) -> a -> Maybe a
+while p f x
+    | p x = while p f (apply f x)
+    | otherwise = Just x
 
 -- | /Until/
 --
@@ -129,10 +128,10 @@ while p f x = if p x
 --
 -- Repeat until a predicate holds.
 
-until :: Data on => (on -> Bool) -> (on -> Maybe on) -> on -> Maybe on
-until p f x = if not (p x)
-  then while p f (apply f x)
-  else Just x
+until :: Data a => (a -> Bool) -> (a -> Maybe a) -> a -> Maybe a
+until p f x
+  | not (p x) = while p f (apply f x)
+  | otherwise = Just x
 
 -------------------------------------------------------------------------------
 -- Rule Composition
@@ -141,7 +140,7 @@ until p f x = if not (p x)
 compose :: (a -> Maybe a) -> (a -> Maybe a) -> a -> Maybe a
 compose f g a = f a `mplus` g a
 
-composes :: [t -> Maybe a] -> t -> Maybe a
+composes :: [a -> Maybe a] -> a -> Maybe a
 composes fs x = msum [f x | f <- fs]
 
 -------------------------------------------------------------------------------
@@ -156,11 +155,11 @@ composes fs x = msum [f x | f <- fs]
 --
 -- applies f to all immediate child nodes
 
-all :: Data on => (on -> on) -> on -> on
+all :: Data a => (a -> a) -> a -> a
 all = descend
 
 -- | Monadic variant of bottomup.
-allM :: (Monad m, Data on) => (on -> m on) -> on -> m on
+allM :: (Monad m, Data a) => (a -> m a) -> a -> m a
 allM = descendM
 
 -- | Topdown application
@@ -169,13 +168,13 @@ allM = descendM
 -- topdown f = f ; all (topdown f)
 -- @
 
-topdown :: Data on => (on -> on) -> on -> on
+topdown :: Data a => (a -> a) -> a -> a
 topdown g a =
    let (current, generate) = uniplate (g a)
    in generate (strMap (topdown g) current)
 
 -- | Monadic variant of topdown.
-topdownM :: (Monad m, Data on) => (on -> m on) -> on -> m on
+topdownM :: (Monad m, Data a) => (a -> m a) -> a -> m a
 topdownM f = g
     where g x = f =<< topdownM g x
 
@@ -185,11 +184,11 @@ topdownM f = g
 -- bottomup f = all (bottomup f) ; f
 -- @
 --
-bottomup :: Data on => (on -> on) -> on -> on
+bottomup :: Data a => (a -> a) -> a -> a
 bottomup = transform
 
 -- | Monadic variant of bottomup.
-bottomupM :: (Monad m, Data on) => (on -> m on) -> on -> m on
+bottomupM :: (Monad m, Data a) => (a -> m a) -> a -> m a
 bottomupM = transformM
 
 -- | /Reduce/
@@ -200,7 +199,7 @@ bottomupM = transformM
 --
 -- Apply rule until it no longer applies.
 
-reduce :: Data on => (on -> Maybe on) -> on -> on
+reduce :: Data a => (a -> Maybe a) -> a -> a
 reduce = rewrite
 
 -- | /Apply/
@@ -211,7 +210,7 @@ reduce = rewrite
 --
 -- Apply rule once to all subexpressions in bottom-up.
 
-apply :: Data on => (on -> Maybe on) -> on -> on
+apply :: Data a => (a -> Maybe a) -> a -> a
 apply f = transform g
   where g x = fromMaybe x (f x)
 
